@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.cache.UpdateCacheMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -201,7 +202,7 @@ CELERY_RESULT_BACKEND = config("REDIS_BACKEND")
 
 # DRF Spectacular
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Ecommerce API",
+    "TITLE": "Tamaade API",
     "DESCRIPTION": "An Ecommerce API built using Django Rest Framework",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
