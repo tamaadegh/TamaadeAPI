@@ -32,10 +32,8 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
 
-# CORS settings for production
-CORS_ALLOWED_ORIGINS = [
-    config('FRONTEND_DOMAIN', default='https://your-frontend-domain.com'),
-]
+# CORS settings for production - Allow all origins
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Logging configuration
 LOGGING = {
