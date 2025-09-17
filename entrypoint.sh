@@ -34,5 +34,12 @@ else
 fi
 
 echo 'Starting gunicorn...'
-echo "Command: $@"
-exec "$@" --log-level debug --access-logfile - --error-logfile -
+if [ $# -eq 0 ]; then
+    echo "No arguments provided, running gunicorn directly"
+    echo "Running: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --log-level debug --access-logfile - --error-logfile -"
+    exec gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --log-level debug --access-logfile - --error-logfile -
+else
+    echo "Arguments provided: $@"
+    echo "Running: $@ --log-level debug --access-logfile - --error-logfile -"
+    exec "$@" --log-level debug --access-logfile - --error-logfile -
+fi
