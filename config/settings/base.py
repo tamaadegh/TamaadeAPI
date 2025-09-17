@@ -10,12 +10,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = config("SECRET_KEY", default="django-insecure-default-key-change-in-production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="", cast=Csv())
 
 
 # Application definition
@@ -88,11 +88,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME"),
-        "USER": config("DB_USERNAME"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOSTNAME"),
-        "PORT": config("DB_PORT", cast=int),
+        "NAME": config("DB_NAME", default="tamaade"),
+        "USER": config("DB_USERNAME", default="tamaade_user"),
+        "PASSWORD": config("DB_PASSWORD", default="password"),
+        "HOST": config("DB_HOSTNAME", default="localhost"),
+        "PORT": config("DB_PORT", default=5432, cast=int),
     }
 }
 
@@ -167,8 +167,8 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = config("EMAIL_USER")
-EMAIL_HOST_PASSWORD = config("EMAIL_PASSWORD")
+EMAIL_HOST_USER = config("EMAIL_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_PASSWORD", default="")
 
 # Phone number field
 PHONENUMBER_DEFAULT_REGION = "ET"
@@ -180,24 +180,24 @@ TOKEN_LENGTH = 6
 TOKEN_EXPIRE_MINUTES = 3
 
 # Twilio
-TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN")
-TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER")
+TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
+TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
 
 # Stripe
-STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY")
-STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY")
-STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET")
+STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="")
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 
-BACKEND_DOMAIN = config("BACKEND_DOMAIN")
-FRONTEND_DOMAIN = config("FRONTEND_DOMAIN")
+BACKEND_DOMAIN = config("BACKEND_DOMAIN", default="http://localhost:8000")
+FRONTEND_DOMAIN = config("FRONTEND_DOMAIN", default="http://localhost:3000")
 
-PAYMENT_SUCCESS_URL = config("PAYMENT_SUCCESS_URL")
-PAYMENT_CANCEL_URL = config("PAYMENT_CANCEL_URL")
+PAYMENT_SUCCESS_URL = config("PAYMENT_SUCCESS_URL", default="http://localhost:3000/success")
+PAYMENT_CANCEL_URL = config("PAYMENT_CANCEL_URL", default="http://localhost:3000/cancel")
 
 # Celery
-CELERY_BROKER_URL = config("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = config("REDIS_BACKEND")
+CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = config("REDIS_BACKEND", default="redis://localhost:6379/0")
 
 
 # DRF Spectacular
@@ -212,7 +212,7 @@ SPECTACULAR_SETTINGS = {
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": config("REDIS_BACKEND"),
+        "LOCATION": config("REDIS_BACKEND", default="redis://localhost:6379/0"),
     },
 }
 CACHE_MIDDLEWARE_ALIAS = "default"

@@ -9,7 +9,7 @@ ALLOWED_HOSTS = ['*']  # Render will handle this
 # Database configuration for Render
 DATABASES = {
     'default': dj_database_url.parse(
-        config('DATABASE_URL', default='postgresql://tamaade_user:lPGtdI8Zqd0pqJYcdCEflfrItWEAJF1U@dpg-d357sep5pdvs73bh0d1g-a.oregon-postgres.render.com/tamaade')
+        config('DATABASE_URL')
     )
 }
 
