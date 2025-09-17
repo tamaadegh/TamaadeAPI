@@ -18,4 +18,21 @@ python manage.py migrate
 echo 'Collecting static files...'
 python manage.py collectstatic --no-input
 
-exec "$@"
+echo 'Testing Django import...'
+python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production'); import django; django.setup(); print('Django import successful')"
+
+echo 'Testing WSGI import...'
+echo "DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
+python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production'); from config.wsgi import application; print('WSGI import successful')"
+
+echo 'Checking PORT environment variable...'
+if [ -z "$PORT" ]; then
+    echo "PORT is not set, using default 8000"
+    export PORT=8000
+else
+    echo "PORT is set to $PORT"
+fi
+
+echo 'Starting gunicorn...'
+echo "Command: $@"
+exec "$@" --log-level debug --access-logfile - --error-logfile -
