@@ -35,6 +35,13 @@ X_FRAME_OPTIONS = 'DENY'
 # CORS settings for production - Allow all origins
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Cache configuration for production - use local memory cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
 # Logging configuration
 LOGGING = {
     'version': 1,
