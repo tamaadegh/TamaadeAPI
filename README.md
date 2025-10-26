@@ -34,3 +34,15 @@ $ docker-compose exec web python manage.py createsuperuser
 ```
 
 Navigate to http://localhost:8000/admin/
+
+## Deployment
+
+See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for production deployment instructions.
+
+## Troubleshooting
+
+### Mobile Authentication Issues
+If mobile users are getting "username and password is incorrect" errors while desktop users can login:
+- See [MOBILE_AUTH_FIX.md](MOBILE_AUTH_FIX.md) for detailed solution
+- Ensure `CSRF_TRUSTED_ORIGINS` and `ALLOWED_HOSTS` environment variables are set in production
+- Verify cookie security settings are properly configured in `config/settings/production.py`

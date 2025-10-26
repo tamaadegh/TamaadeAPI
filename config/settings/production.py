@@ -4,7 +4,9 @@ from .base import *
 
 # Security settings for production
 DEBUG = False
-ALLOWED_HOSTS = ['*']  # Render will handle this
+# Use ALLOWED_HOSTS from environment variable for security
+# Fallback to ['*'] only if not set (not recommended for production)
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
 
 # Database configuration for Render
 DATABASES = {
@@ -34,6 +36,20 @@ X_FRAME_OPTIONS = 'DENY'
 
 # CORS settings for production - Allow all origins
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# JWT Cookie settings for production
+JWT_AUTH_SECURE = True
+JWT_AUTH_HTTPONLY = True
+JWT_AUTH_SAMESITE = 'None'  # Required for mobile/cross-origin requests
+
+# Session and CSRF cookie settings for production
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
 
 # Cache configuration for production - use local memory cache
 CACHES = {
