@@ -1,0 +1,124 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner">
+        <h3>{{ total_sales|floatformat:2 }}</h3>
+        <p>Total Sales</p>
+      </div>
+      <div class="icon"><i class="fas fa-dollar-sign"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner">
+        <h3>{{ total_customers }}</h3>
+        <p>Total Customers</p>
+      </div>
+      <div class="icon"><i class="fas fa-users"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner text-dark">
+        <h3>{{ total_products }}</h3>
+        <p>Products</p>
+      </div>
+      <div class="icon"><i class="fas fa-box"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner">
+        <h3>{{ total_orders }}</h3>
+        <p>Total Orders</p>
+      </div>
+      <div class="icon"><i class="fas fa-shopping-cart"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-chart-line me-2"></i>Sales (Last 30 days)</h3></div>
+      <div class="card-body"><canvas id="salesChart" height="120"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-trophy me-2"></i>Top Products</h3></div>
+      <div class="card-body"><canvas id="topProductsChart" height="120"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3 class="card-title"><i class="fas fa-clock me-2"></i>Recent Orders</h3></div>
+  <div class="card-body p-0">
+    <table class="table table-striped mb-0">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Total</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in recent_orders %}
+        <tr>
+          <td>#{{ order.id }}</td>
+          <td>{{ order.buyer.get_full_name|default:order.buyer.username }}</td>
+          <td>${{ order.total_cost|floatformat:2 }}</td>
+          <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            {% if order.status == 'P' %}
+              <span class="badge bg-warning text-dark">Pending</span>
+            {% elif order.status == 'C' %}
+              <span class="badge bg-success">Completed</span>
+            {% else %}
+              <span class="badge bg-secondary">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center py-4">No recent orders.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    // Embed JSON safely and parse
+    // Sales trend
+    const salesData = JSON.parse(document.getElementById('sales-data').textContent);
+    const salesLabels = Object.keys(salesData);
+    const salesValues = Object.values(salesData);
+    new Chart(document.getElementById('salesChart'), {
+      type: 'line',
+      data: { labels: salesLabels, datasets: [{ label: 'Sales', data: salesValues, borderColor: '#28a745', backgroundColor: 'rgba(40,167,69,0.2)', fill: true, tension: .3 }] },
+      options: { scales: { y: { beginAtZero: true } } }
+    });
+
+    // Top products
+    const topProducts = JSON.parse(document.getElementById('top-products-data').textContent);
+    new Chart(document.getElementById('topProductsChart'), {
+      type: 'bar',
+      data: { labels: Object.keys(topProducts), datasets: [{ label: 'Qty', data: Object.values(topProducts), backgroundColor: '#28a745' }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+    });
+  });
+</script>
+{# Safely include JSON payloads #}
+{{ sales_trend|json_script:"sales-data" }}
+{{ top_products|json_script:"top-products-data" }}
+{% endblock %}

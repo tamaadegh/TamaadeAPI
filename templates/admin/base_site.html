@@ -1,0 +1,138 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<!-- Font Awesome -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<!-- Custom Admin CSS -->
+<link rel="stylesheet" href="{% static 'admin/css/custom_admin.css' %}" />
+<style>
+    :root {
+        --primary: #28a745;
+        --primary-dark: #218838;
+        --secondary: #ffffff;
+        --success: #28a745;
+        --info: #17a2b8;
+        --warning: #ffc107;
+        --danger: #dc3545;
+        --light: #f8f9fc;
+        --dark: #2c3e50;
+    }
+    
+    body {
+        background-color: #f8f9fc;
+    }
+    
+    #header {
+        background: var(--primary);
+        color: white;
+    }
+    
+    #branding h1 {
+        color: white;
+        font-weight: 600;
+    }
+    
+    .module h2, .module caption, .inline-group h2 {
+        background: var(--primary) !important;
+    }
+    
+    .dashboard #content {
+        width: 100%;
+    }
+    
+    .dashboard .module table th {
+        width: 100%;
+    }
+    
+    .dashboard .module table td {
+        white-space: nowrap;
+    }
+    
+    .dashboard .module table td a {
+        display: block;
+        color: var(--primary);
+    }
+    
+    .dashboard .module table td a:hover {
+        color: var(--dark);
+    }
+    
+    .object-tools a:link, .object-tools a:visited {
+        background: var(--success);
+    }
+    
+    .submit-row input[type="submit"] {
+        background: var(--primary);
+    }
+    
+    .dashboard #content {
+        padding: 20px;
+    }
+    
+    .dashboard .module {
+        margin-bottom: 20px;
+        background: white;
+        border: 1px solid #e3e6f0;
+        border-radius: 0.35rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    }
+    
+    .dashboard .module h2, .dashboard .module caption {
+        padding: 1rem 1.25rem;
+        margin-bottom: 0;
+        background-color: #f8f9fc;
+        border-bottom: 1px solid #e3e6f0;
+        color: var(--dark);
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .dashboard .module table {
+        margin: 0;
+        width: 100%;
+    }
+    
+    .dashboard .module table th, .dashboard .module table td {
+        padding: 0.75rem 1.25rem;
+        vertical-align: middle;
+        border-top: 1px solid #e3e6f0;
+    }
+    
+    .dashboard .module table th {
+        background-color: #f8f9fc;
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    /* Responsive tables */
+    @media (max-width: 768px) {
+        .dashboard .module table {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <i class="fas fa-tachometer-alt me-2"></i>
+        Tamaade Admin
+    </a>
+</h1>
+{% endblock %}
+
+{% block nav-global %}
+<div class="user-actions">
+    <a href="{% url 'dashboard:index' %}" class="btn btn-sm btn-outline-light me-2">
+        <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+    </a>
+    <a href="/" class="btn btn-sm btn-outline-light" target="_blank">
+        <i class="fas fa-external-link-alt me-1"></i> View Site
+    </a>
+</div>
+{% endblock %}

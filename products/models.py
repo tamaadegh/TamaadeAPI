@@ -13,6 +13,9 @@ def product_image_path(instance, filename):
     return f"product/images/{instance.name}/{filename}"
 
 
+def product_video_path(instance, filename):
+    return f"product/videos/{instance.name}/{filename}"
+
 class ProductCategory(models.Model):
     name = models.CharField(_("Category name"), max_length=100)
     icon = models.ImageField(upload_to=category_image_path, blank=True)
@@ -42,6 +45,7 @@ class Product(models.Model):
     name = models.CharField(max_length=200)
     desc = models.TextField(_("Description"), blank=True)
     image = models.ImageField(upload_to=product_image_path, blank=True)
+    video = models.FileField(upload_to=product_video_path, blank=True, null=True)
     price = models.DecimalField(decimal_places=2, max_digits=10)
     quantity = models.IntegerField(default=1)
 

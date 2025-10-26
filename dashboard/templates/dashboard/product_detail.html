@@ -1,0 +1,113 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Product • {{ product.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard:products_list' %}">Products</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+  </ol>
+</nav>
+
+<div class="card shadow-sm">
+  <div class="row g-0">
+    <div class="col-lg-7 border-end">
+      <div class="p-3">
+        {% if product.image %}
+          <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid img-fit-contain" style="max-height: 420px;">
+        {% else %}
+          <img src="https://via.placeholder.com/1000x420?text=No+Image" class="img-fluid img-fit-contain" style="max-height: 420px;">
+        {% endif %}
+      </div>
+      {% if product.video %}
+      <div class="px-3 pb-3">
+        <div class="ratio ratio-16x9">
+          <video controls preload="metadata" class="w-100 h-100">
+            <source src="{{ product.video.url }}" type="video/mp4">
+            <source src="{{ product.video.url }}" type="video/webm">
+            <source src="{{ product.video.url }}" type="video/ogg">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="col-lg-5">
+      <div class="card-body">
+        <h3 class="card-title">{{ product.name }}</h3>
+        <p class="text-muted mb-2">Category: {{ product.category.name }}</p>
+        <div class="mb-3">
+          <span class="badge bg-info fs-6">${{ product.price }}</span>
+          {% if product.quantity > 0 %}
+            <span class="badge bg-success fs-6">In Stock: {{ product.quantity }}</span>
+          {% else %}
+            <span class="badge bg-danger fs-6">Out of Stock</span>
+          {% endif %}
+        </div>
+        <p class="mb-0">{{ product.desc }}</p>
+        <hr>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-secondary" href="{% url 'dashboard:products_list' %}"><i class="fa fa-arrow-left me-1"></i> Back</a>
+          <a class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal-{{ product.id }}"><i class="fa fa-pen me-1"></i> Edit</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reuse edit modal markup for detail page -->
+<div class="modal fade" id="editModal-{{ product.id }}" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" enctype="multipart/form-data" action="{% url 'dashboard:product_update' product.id %}">
+        <div class="modal-body">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Name</label>
+              <input type="text" name="name" value="{{ product.name }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Category</label>
+              <select name="category" class="form-select" required>
+                <option value="{{ product.category_id }}" selected>{{ product.category.name }}</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea name="desc" rows="3" class="form-control">{{ product.desc }}</textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Image</label>
+              <input type="file" name="image" accept="image/*" class="form-control">
+              {% if product.image %}<small class="text-muted">Current: {{ product.image.name }}</small>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Video (MP4/WebM/Ogg)</label>
+              <input type="file" name="video" accept="video/mp4,video/webm,video/ogg" class="form-control">
+              {% if product.video %}<small class="text-muted">Current: {{ product.video.name }}</small>{% endif %}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Price</label>
+              <input type="number" step="0.01" name="price" value="{{ product.price }}" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Quantity</label>
+              <input type="number" name="quantity" value="{{ product.quantity }}" class="form-control" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

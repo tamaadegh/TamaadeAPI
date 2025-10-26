@@ -1,0 +1,166 @@
+/* Custom Admin Styles for Tamaade - Green Theme */
+
+:root {
+    --primary-green: #28a745;
+    --primary-green-dark: #218838;
+    --primary-green-light: #34ce57;
+    --secondary-white: #ffffff;
+    --accent-red: #dc3545;
+    --accent-red-dark: #c82333;
+}
+
+/* Admin Header */
+#header {
+    background: var(--primary-green);
+    color: white;
+}
+
+#branding h1, #branding h1 a:link, #branding h1 a:visited {
+    color: white;
+}
+
+/* Module headers */
+.module h2, .module caption, .inline-group h2 {
+    background: var(--primary-green) !important;
+    color: white;
+}
+
+/* Action buttons */
+.button, input[type=submit], input[type=button], .submit-row input, button {
+    background: var(--primary-green);
+    border: none;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.button:hover, input[type=submit]:hover, input[type=button]:hover, .submit-row input:hover, button:hover {
+    background: var(--primary-green-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Object tools */
+.object-tools a:link, .object-tools a:visited {
+    background: var(--primary-green);
+    border-radius: 4px;
+}
+
+.object-tools a:hover {
+    background: var(--primary-green-dark);
+}
+
+/* Delete buttons */
+.deletelink, .deletelink-box {
+    background: var(--accent-red) !important;
+}
+
+.deletelink:hover, .deletelink-box:hover {
+    background: var(--accent-red-dark) !important;
+}
+
+/* Tables */
+#result_list th {
+    background: #f8f9fa;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+#result_list tbody tr:hover {
+    background: #f0f0ff;
+}
+
+/* Form styling */
+.form-row {
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.aligned label {
+    font-weight: 600;
+    color: #333;
+}
+
+/* Dashboard */
+#content-main {
+    padding: 20px;
+}
+
+/* Module cards */
+.module {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 10px 15px;
+}
+
+/* Pagination */
+.paginator {
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Change list filters */
+#changelist-filter {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+#changelist-filter h2 {
+    background: none !important;
+    color: #333;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Login page */
+.login {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login #header {
+    background: transparent;
+}
+
+.login #content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+/* Success messages */
+.messagelist .success {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+}
+
+.messagelist .warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+
+.messagelist .error {
+    background: #f8d7da;
+    border-left: 4px solid #dc3545;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    #content {
+        padding: 10px;
+    }
+    
+    .module {
+        margin-bottom: 15px;
+    }
+}

@@ -1,0 +1,77 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .dashboard-welcome {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    }
+    .dashboard-welcome h1 {
+        margin: 0;
+        font-size: 2rem;
+    }
+    .dashboard-welcome p {
+        margin: 10px 0 0 0;
+        opacity: 0.9;
+    }
+    .quick-actions {
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .quick-actions h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+    .quick-action-btn {
+        display: inline-block;
+        padding: 10px 20px;
+        margin: 5px;
+        background: #28a745;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: all 0.3s;
+    }
+    .quick-action-btn:hover {
+        background: #218838;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-welcome">
+    <h1><i class="fas fa-tachometer-alt"></i> Welcome to Tamaade Admin</h1>
+    <p>Manage your e-commerce platform with ease</p>
+</div>
+
+<div class="quick-actions">
+    <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+    <a href="{% url 'admin:products_product_add' %}" class="quick-action-btn">
+        <i class="fas fa-plus"></i> Add Product
+    </a>
+    <a href="{% url 'admin:products_productcategory_add' %}" class="quick-action-btn">
+        <i class="fas fa-tag"></i> Add Category
+    </a>
+    <a href="{% url 'admin:orders_order_add' %}" class="quick-action-btn">
+        <i class="fas fa-shopping-cart"></i> Create Order
+    </a>
+    <a href="{% url 'dashboard:index' %}" class="quick-action-btn">
+        <i class="fas fa-chart-line"></i> View Dashboard
+    </a>
+</div>
+
+{{ block.super }}
+{% endblock %}

@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/user/orders/", include("orders.urls", namespace="orders")),
     path("api/user/payments/", include("payment.urls", namespace="payment")),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
+    path("dashboard/", include("dashboard.urls", namespace="dashboard")),
     path(
         "resend-email/", ResendEmailVerificationView.as_view(), name="rest_resend_email"
     ),

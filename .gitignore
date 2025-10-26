@@ -133,3 +133,5 @@ dmypy.json
 media/
 mediafiles/
 staticfiles/
+.aider*
+.env
