@@ -8,6 +8,8 @@ services:
       - .:/code
     env_file:
       - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
     ports:
       - 8000:8000
     depends_on:
@@ -23,6 +25,8 @@ services:
       - .:/code
     env_file:
       - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
     depends_on:
       - redis
       - web
