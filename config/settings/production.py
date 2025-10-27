@@ -47,9 +47,13 @@ JWT_AUTH_SAMESITE = 'None'  # Required for mobile/cross-origin requests
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_HTTPONLY = True
+
+# Critical fix for admin login issues
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
+CSRF_USE_SESSIONS = True  # Store CSRF token in session instead of cookie
+CSRF_COOKIE_DOMAIN = None  # Allow subdomains to access CSRF token
 
 # Cache configuration for production - use local memory cache
 CACHES = {
