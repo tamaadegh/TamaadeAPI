@@ -55,6 +55,9 @@ CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript access
 CSRF_USE_SESSIONS = True  # Store CSRF token in session instead of cookie
 CSRF_COOKIE_DOMAIN = None  # Allow subdomains to access CSRF token
 
+# Trusted origins (fallback to Render domain if not set via env)
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='https://tamaadeapi-7it5.onrender.com', cast=Csv())
+
 # Cache configuration for production - use local memory cache
 CACHES = {
     'default': {

@@ -21,6 +21,7 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="", cast=Csv())
 # Application definition
 
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -237,3 +238,19 @@ STATICFILES_DIRS = [
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR.parent / 'mediafiles'
+
+# Jazzmin configuration for a modern, branded admin
+JAZZMIN_SETTINGS = {
+    "site_title": "Tamaade Admin Portal",
+    "site_header": "Tamaade Admin",
+    "site_brand": "Tamaade",
+    "welcome_sign": "Welcome to Tamaade Admin",
+    "show_ui_builder": False,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",
+    "navbar": "navbar-dark",
+    "accent": "accent-green",
+    "sidebar_fixed": True,
+}

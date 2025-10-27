@@ -74,3 +74,4 @@ wrapt==1.14.1
 pre-commit==3.4.0
 dj-database-url==2.1.0
 whitenoise==6.5.0
+django-jazzmin>=2.6.0
