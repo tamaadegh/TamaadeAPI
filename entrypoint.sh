@@ -1,16 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
-# Check if we're in Render environment (has DATABASE_URL)
-if [ -n "$DATABASE_URL" ]; then
-    echo 'Running in Render environment...'
-    echo 'Database connection will be handled by Django settings'
-else
-    echo 'Waiting for postgres...'
-    while ! nc -z $DB_HOSTNAME $DB_PORT; do
-        sleep 0.1
-    done
-    echo 'PostgreSQL started'
+# Check if DATABASE_URL is set
+if [ -z "$DATABASE_URL" ]; then
+    echo 'Error: DATABASE_URL is not set. Exiting.'
+    exit 1
 fi
+
+echo 'Using DATABASE_URL for database connection.'
+
+# Wait for the database to be ready
+until nc -z $(echo $DATABASE_URL | sed -E 's|.*://[^@]*@([^:/]+):([0-9]+).*|\1 \2|'); do
+    echo 'Waiting for the database to be ready...'
+    sleep 1
+done
+
+echo 'Database is ready.'
 
 echo 'Running migrations...'
 python manage.py migrate

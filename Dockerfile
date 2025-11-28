@@ -9,14 +9,21 @@ WORKDIR /code
 COPY ./requirements.txt .
 
 RUN apt-get update -y && \
-    apt-get install -y netcat && \
+    apt-get install -y netcat dos2unix && \
     pip install --upgrade pip && \
     pip install -r requirements.txt
 
-COPY ./entrypoint.sh .
-RUN chmod +x /code/entrypoint.sh
 
+# Ensure entrypoint script uses LF on runtime and make it executable
 COPY . .
 
-ENTRYPOINT ["/code/entrypoint.sh"]
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+# Install a wrapper outside /code so we are not affected by bind mounts
+COPY entrypoint_wrapper.sh /usr/local/bin/entrypoint_wrapper.sh
+
+RUN sed -i 's/\r$//' /code/entrypoint.sh || true && \
+    chmod +x /code/entrypoint.sh || true && \
+    sed -i 's/\r$//' /usr/local/bin/entrypoint_wrapper.sh || true && \
+    chmod +x /usr/local/bin/entrypoint_wrapper.sh || true
+
+ENTRYPOINT ["/usr/local/bin/entrypoint_wrapper.sh"]
+CMD ["sh", "-lc", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --log-level debug --access-logfile - --error-logfile -"]
