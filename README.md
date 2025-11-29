@@ -39,6 +39,22 @@ Navigate to http://localhost:8000/admin/
 
 See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for production deployment instructions.
 
+### Quick local production test with docker-compose
+You can run a production-like environment locally using `docker-compose.prod.yml`:
+
+```pwsh
+# Build and run production-like containers locally
+docker compose -f docker-compose.prod.yml up --build --remove-orphans
+
+# Run migrations for production container
+docker compose -f docker-compose.prod.yml exec web python manage.py migrate
+
+# Create superuser
+docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
+```
+
+Note: `docker-compose.prod.yml` avoids mounting your local code directory into the container (no bind mounts) and runs `gunicorn` instead of Django's dev server. Use this to validate production behavior locally before deploying.
+
 ## Troubleshooting
 
 ### Mobile Authentication Issues
