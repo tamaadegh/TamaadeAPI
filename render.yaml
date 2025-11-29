@@ -25,6 +25,8 @@ services:
         value: 3.10.2
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.production
+      - key: PORT
+        value: "8000"
 
   - type: worker
     name: tamaade-worker
