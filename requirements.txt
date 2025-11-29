@@ -35,6 +35,7 @@ httplib2==0.20.4
 humanize==4.4.0
 idna==3.3
 inflection==0.5.1
+imagekitio
 jsonschema==4.16.0
 kombu==5.2.4
 oauthlib==3.2.0
@@ -75,3 +76,4 @@ wrapt==1.14.1
 pre-commit==3.4.0
 dj-database-url==2.1.0
 whitenoise==6.5.0
+imagekitio==1.2.0

@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from orders.models import Order, OrderItem
-from products.models import Product, ProductCategory
+from products.models import Product, ProductCategory, ProductImage, ProductVideo
 from .forms import ProductForm, OrderStatusForm
 
 User = get_user_model()
@@ -105,6 +105,11 @@ def product_create(request):
             product = form.save(commit=False)
             product.seller = request.user
             product.save()
+            # Handle multiple uploaded images/videos
+            for idx, f in enumerate(request.FILES.getlist('image_files')):
+                ProductImage.objects.create(product=product, file_local=f, order=idx)
+            for idx, f in enumerate(request.FILES.getlist('video_files')):
+                ProductVideo.objects.create(product=product, file_local=f, order=idx)
             messages.success(request, f'Product "{product.name}" created successfully!')
             return redirect("dashboard:products_list")
         else:
@@ -136,6 +141,11 @@ def product_update(request, product_id):
         form = ProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
             form.save()
+            # Update multiple uploads
+            for idx, f in enumerate(request.FILES.getlist('image_files')):
+                ProductImage.objects.create(product=product, file_local=f, order=idx)
+            for idx, f in enumerate(request.FILES.getlist('video_files')):
+                ProductVideo.objects.create(product=product, file_local=f, order=idx)
             messages.success(request, f'Product "{product.name}" updated successfully!')
         else:
             messages.error(request, 'Failed to update product. Please check the form.')

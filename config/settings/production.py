@@ -11,7 +11,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
 # Database configuration for Render
 DATABASES = {
     'default': dj_database_url.parse(
-        config('DATABASE_URL'), conn_max_age=600, ssl_require=True
+        config('DATABASE_URL'), conn_max_age=600, ssl_require=False
     )
 }
 

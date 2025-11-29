@@ -239,6 +239,12 @@ STATICFILES_DIRS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR.parent / 'mediafiles'
 
+# ImageKit configuration - set these in your .env or environment variables
+IMAGEKIT_PUBLIC_KEY = config("IMAGEKIT_PUBLIC_KEY", default="")
+IMAGEKIT_PRIVATE_KEY = config("IMAGEKIT_PRIVATE_KEY", default="")
+IMAGEKIT_URL_ENDPOINT = config("IMAGEKIT_URL_ENDPOINT", default="")
+IMAGEKIT_UPLOAD_ASYNC = config("IMAGEKIT_UPLOAD_ASYNC", default=True, cast=bool)
+
 # Jazzmin configuration for a modern, branded admin
 JAZZMIN_SETTINGS = {
     "site_title": "Tamaade Admin Portal",

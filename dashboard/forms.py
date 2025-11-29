@@ -7,7 +7,16 @@ from orders.models import Order
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ["name", "category", "desc", "image", "video", "price", "quantity"]
+        # Keep legacy `image` and `video` while adding multiple-upload inputs
+        fields = [
+            "name",
+            "category",
+            "desc",
+            "image",
+            "video",
+            "price",
+            "quantity",
+        ]
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -68,6 +77,16 @@ class ProductForm(forms.ModelForm):
         if hasattr(video, "size") and video.size > max_mb * 1024 * 1024:
             raise ValidationError(f"Video file too large (>{max_mb}MB)")
         return video
+
+    # Add optional form fields for multiple uploads (not model fields):
+    image_files = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={"multiple": True, "accept": "image/*", "class": "form-control"}),
+        required=False,
+    )
+    video_files = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={"multiple": True, "accept": "video/mp4,video/webm,video/ogg", "class": "form-control"}),
+        required=False,
+    )
 
 
 class OrderStatusForm(forms.ModelForm):

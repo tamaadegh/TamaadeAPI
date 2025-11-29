@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from products.models import Product, ProductCategory
+from products.models import Product, ProductCategory, ProductImage, ProductVideo
 
 
 @admin.register(ProductCategory)
@@ -23,6 +23,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_editable = ['price', 'quantity']
     list_per_page = 25
     readonly_fields = ['thumbnail_display', 'video_preview', 'seller', 'created_at', 'updated_at']
+    inlines = []
     
     fieldsets = (
         ('Product Information', {
@@ -47,6 +48,18 @@ class ProductAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def thumbnail_preview(self, obj):
+        # Prefer the first ProductImage if present
+        image = None
+        try:
+            image = obj.images.first()
+        except Exception:
+            image = None
+
+        if image and image.url:
+            return format_html(
+                '<img src="{}" width="50" height="50" style="object-fit: cover; border-radius: 5px;" />',
+                image.url
+            )
         if obj.image:
             return format_html(
                 '<img src="{}" width="50" height="50" style="object-fit: cover; border-radius: 5px;" />',
@@ -56,6 +69,17 @@ class ProductAdmin(admin.ModelAdmin):
     thumbnail_preview.short_description = 'Image'
     
     def thumbnail_display(self, obj):
+        image = None
+        try:
+            image = obj.images.first()
+        except Exception:
+            image = None
+
+        if image and image.url:
+            return format_html(
+                '<img src="{}" width="300" style="border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />',
+                image.url
+            )
         if obj.image:
             return format_html(
                 '<img src="{}" width="300" style="border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />',
@@ -65,6 +89,18 @@ class ProductAdmin(admin.ModelAdmin):
     thumbnail_display.short_description = 'Product Image'
     
     def video_preview(self, obj):
+        video = None
+        try:
+            video = obj.videos.first()
+        except Exception:
+            video = None
+
+        if video and video.url:
+            return format_html(
+                '<video width="300" controls><source src="{}">Your browser does not support the video tag.</video>',
+                video.url
+            )
+
         if obj.video:
             return format_html(
                 '<video width="300" controls><source src="{}" type="video/mp4">Your browser does not support the video tag.</video>',
@@ -100,3 +136,31 @@ class ProductAdmin(admin.ModelAdmin):
 admin.site.site_header = 'Tamaade Administration'
 admin.site.site_title = 'Tamaade Admin Portal'
 admin.site.index_title = 'Welcome to Tamaade Admin Dashboard'
+
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
+    fields = ('file_local', 'preview', 'url', 'is_primary', 'order')
+    readonly_fields = ('preview',)
+
+    def preview(self, obj):
+        if obj and obj.url:
+            return format_html('<img src="{}" style="max-width: 150px;" />', obj.url)
+        return '(no image)'
+
+
+class ProductVideoInline(admin.TabularInline):
+    model = ProductVideo
+    extra = 1
+    fields = ('file_local', 'preview', 'url', 'is_primary', 'order')
+    readonly_fields = ('preview',)
+
+    def preview(self, obj):
+        if obj and obj.url:
+            return format_html('<video width="200" controls><source src="{}">Your browser does not support the video tag.</video>', obj.url)
+        return '(no video)'
+
+
+# Hook up the inlines to the ProductAdmin
+ProductAdmin.inlines = [ProductImageInline, ProductVideoInline]

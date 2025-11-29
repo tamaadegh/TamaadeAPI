@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load imagekit_tags %}
 {% block title %}Products{% endblock %}
 
 {% block content %}
@@ -29,7 +30,12 @@
   <div class="col-md-6 col-lg-4">
     <div class="card mb-3 h-100 shadow-sm">
       <div class="media-top">
-        {% if product.image %}
+        {% if product.images.exists %}
+          {% with main_img=product.images.first %}
+            {% imagekit_url main_img.url width=600 height=180 quality=70 as image_src %}
+            <img class="card-img-top img-fit-cover" src="{{ image_src }}" alt="{{ product.name }}" style="height: 180px;">
+          {% endwith %}
+        {% elif product.image %}
           <img class="card-img-top img-fit-cover" src="{{ product.image.url }}" alt="{{ product.name }}" style="height: 180px;">
         {% else %}
           <img class="card-img-top img-fit-cover" src="https://via.placeholder.com/600x180?text=No+Image" alt="no image" style="height: 180px;">
@@ -74,7 +80,9 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          {% if product.image %}
+          {% if product.images.exists %}
+            <img src="{{ product.images.first.url }}" alt="{{ product.name }}" class="img-fluid mb-3" style="max-height: 360px; object-fit: contain;">
+          {% elif product.image %}
             <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid mb-3" style="max-height: 360px; object-fit: contain;">
           {% else %}
             <img src="https://via.placeholder.com/800x360?text=No+Image" alt="no image" class="img-fluid mb-3" style="max-height: 360px; object-fit: contain;">
@@ -125,14 +133,18 @@
                 <textarea name="desc" rows="3" class="form-control">{{ product.desc }}</textarea>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Image</label>
+                <label class="form-label">Image (single)</label>
                 <input type="file" name="image" accept="image/*" class="form-control">
                 {% if product.image %}<small class="text-muted">Current: {{ product.image.name }}</small>{% endif %}
+                <label class="form-label mt-2">Or upload multiple images</label>
+                <input type="file" name="image_files" accept="image/*" multiple class="form-control">
               </div>
               <div class="col-md-6">
-                <label class="form-label">Video (MP4/WebM/Ogg)</label>
+                <label class="form-label">Video (single)</label>
                 <input type="file" name="video" accept="video/mp4,video/webm,video/ogg" class="form-control">
                 {% if product.video %}<small class="text-muted">Current: {{ product.video.name }}</small>{% endif %}
+                <label class="form-label mt-2">Or upload multiple videos</label>
+                <input type="file" name="video_files" accept="video/mp4,video/webm,video/ogg" multiple class="form-control">
               </div>
               <div class="col-md-3">
                 <label class="form-label">Price</label>
@@ -252,6 +264,8 @@
               {% if form.image.errors %}
                 <div class="text-danger small">{{ form.image.errors.0 }}</div>
               {% endif %}
+              <label class="form-label fw-bold mt-2">Upload multiple images</label>
+              {{ form.image_files }}
             </div>
 
             <!-- Product Video -->
@@ -262,6 +276,8 @@
               {% if form.video.errors %}
                 <div class="text-danger small">{{ form.video.errors.0 }}</div>
               {% endif %}
+              <label class="form-label fw-bold mt-2">Upload multiple videos</label>
+              {{ form.video_files }}
             </div>
 
             <!-- Price -->
