@@ -42,12 +42,12 @@ echo "DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
 python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production'); from config.wsgi import application; print('WSGI import successful')"
 
 echo 'Checking PORT environment variable...'
-if [ -z "$PORT" ]; then
-    echo "PORT is not set, using default 8000"
-    export PORT=8000
-else
-    echo "PORT is set to $PORT"
-fi
+# Ensure PORT is numeric; strip non-numeric characters
+PORT="${PORT:-8000}"
+PORT=$(echo "$PORT" | sed 's/[^0-9]//g')
+[ -z "$PORT" ] && PORT="8000"
+export PORT
+echo "PORT is set to $PORT"
 
 echo 'Starting process...'
 if [ $# -eq 0 ]; then

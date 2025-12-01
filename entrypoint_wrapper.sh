@@ -7,17 +7,21 @@ if [ -f "/code/entrypoint.sh" ]; then
   chmod +x /code/entrypoint.sh || true
 fi
 
-# Ensure PORT has a sensible default
-export PORT=${PORT:-8000}
+# Ensure PORT has a sensible default and is numeric
+PORT="${PORT:-8000}"
+# Clean PORT: remove any whitespace, quotes, or literal $PORT strings
+PORT=$(echo "$PORT" | sed 's/[^0-9]//g')
+[ -z "$PORT" ] && PORT="8000"
+export PORT
 
 # If DJANGO_SETTINGS_MODULE not set, prefer production for image deployments
 export DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.production}
 
 echo "[entrypoint_wrapper] PORT=$PORT DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE"
 
-# Basic validation: PORT must be a number
-if ! (echo "$PORT" | grep -Eq '^[0-9]+$'); then
-  echo "[entrypoint_wrapper] ERROR: PORT='$PORT' is not a valid numeric port. Set a numeric PORT (e.g., 8000) in your environment or hosting panel."
+# Validate PORT is numeric and in valid range (1-65535)
+if ! [ "$PORT" -ge 1 ] 2>/dev/null || ! [ "$PORT" -le 65535 ] 2>/dev/null; then
+  echo "[entrypoint_wrapper] ERROR: PORT='$PORT' is not a valid port number (must be 1-65535). Check your PORT environment variable."
   exit 1
 fi
 
