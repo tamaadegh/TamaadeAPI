@@ -3,7 +3,11 @@ version: "3.9"
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    # Use the Django dev server in development. The dev server's autoreloader spawns
+    # a child process which causes duplicated logs and duplicated startup notices
+    # because both parent and child can write to stdout. For a cleaner local run,
+    # we disable the autoreloader.
+    command: python manage.py runserver 0.0.0.0:8000 --noreload
     volumes:
       - .:/code
     env_file:

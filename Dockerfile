@@ -9,7 +9,7 @@ WORKDIR /code
 COPY ./requirements.txt .
 
 RUN apt-get update -y && \
-    apt-get install -y netcat dos2unix && \
+    apt-get install -y netcat dos2unix gettext-base && \
     pip install --upgrade pip && \
     pip install -r requirements.txt
 
