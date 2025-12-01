@@ -41,43 +41,36 @@ echo 'Testing WSGI import...'
 echo "DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
 python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production'); from config.wsgi import application; print('WSGI import successful')"
 
-echo 'Checking PORT environment variable...'
+echo "PORT validation and setup..."
 # Ensure PORT is numeric; strip non-numeric characters
 PORT="${PORT:-8000}"
 PORT=$(echo "$PORT" | sed 's/[^0-9]//g')
 [ -z "$PORT" ] && PORT="8000"
 export PORT
+
+# Validate PORT is in valid range
+if ! [ "$PORT" -ge 1 ] 2>/dev/null || ! [ "$PORT" -le 65535 ] 2>/dev/null; then
+  echo "ERROR: PORT='$PORT' is not valid (must be 1-65535)"
+  exit 1
+fi
 echo "PORT is set to $PORT"
 
-echo 'Starting process...'
+echo 'Starting application...'
 if [ $# -eq 0 ]; then
-    echo "No arguments provided, running gunicorn directly"
-    echo "Running: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --log-level debug --access-logfile - --error-logfile -"
-    exec gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --log-level debug --access-logfile - --error-logfile -
+    echo "Running gunicorn on port $PORT"
+    exec gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --log-level info --access-logfile - --error-logfile -
 else
-    echo "Arguments provided: $@"
-    # Handle specific commands without appending gunicorn flags
     case "$1" in
       celery)
-        echo "Running Celery worker: $@"
+        echo "Running Celery worker"
         exec "$@"
         ;;
-      python)
-        # If running Django dev server, ensure correct bind and no extra flags
-        if [ "$2" = "manage.py" ] && [ "$3" = "runserver" ]; then
-          echo "Running Django development server"
-          exec python manage.py runserver 0.0.0.0:$PORT
-        else
-          echo "Running Python command: $@"
-          exec "$@"
-        fi
-        ;;
-      gunicorn)
-        echo "Running provided gunicorn command"
+      gunicorn|python)
+        echo "Running: $@"
         exec "$@"
         ;;
       *)
-        echo "Running provided command as-is"
+        echo "Running custom command: $@"
         exec "$@"
         ;;
     esac
