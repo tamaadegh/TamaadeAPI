@@ -42,8 +42,14 @@ See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for production deployment instr
 ### Quick local production test with docker-compose
 You can run a production-like environment locally using `docker-compose.prod.yml`:
 
+docker compose -f docker-compose.prod.yml exec web python manage.py migrate
+docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
 ```pwsh
-# Build and run production-like containers locally
+# Make sure you set a production DATABASE_URL in your .env (use an external DB for production):
+# Example:
+# DATABASE_URL=postgresql://user:password@host:5432/dbname
+
+# Build and run production-like containers locally (this compose file expects an external database via DATABASE_URL):
 docker compose -f docker-compose.prod.yml up --build --remove-orphans
 
 # Run migrations for production container

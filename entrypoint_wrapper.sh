@@ -21,5 +21,12 @@ if ! (echo "$PORT" | grep -Eq '^[0-9]+$'); then
   exit 1
 fi
 
+# For production, require that DATABASE_URL is set (we don't run a local DB)
+if [ "$DJANGO_SETTINGS_MODULE" = "config.settings.production" ]; then
+  if [ -z "$DATABASE_URL" ]; then
+    echo "[entrypoint_wrapper] WARNING: DJANGO_SETTINGS_MODULE=config.settings.production but DATABASE_URL is not set. Ensure your .env has DATABASE_URL pointing to your external DB."
+  fi
+fi
+
 # If there are any args provided, forward them to the main entrypoint script
 exec /bin/bash /code/entrypoint.sh "$@"

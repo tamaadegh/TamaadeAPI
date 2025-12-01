@@ -5,7 +5,7 @@ services:
     build: .
     image: tamaadeapi/web:latest
     env_file:
-      - .env
+      - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - PORT=${PORT:-8000}
@@ -15,48 +15,9 @@ services:
     depends_on:
       - redis
     restart: always
-
-  redis:
-    image: redis:7
-
-  celery:
-    build: .
-    env_file:
-      - .env
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.production
-    command: celery -A config worker --loglevel=info
-    depends_on:
-      - redis
-
-volumes:
-  postgres_data:
-version: "3.9"
-
-services:
-  web:
-    build: .
-    restart: always
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
-    env_file:
-      - ./.env
-    expose:
-      - 8000
     volumes:
       - static_volume:/code/staticfiles
       - media_volume:/code/mediafiles
-    depends_on:
-      - redis
-      - db
-  db:
-    image: postgres:13
-    restart: always
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - POSTGRES_USER=${DB_USERNAME}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
 
   redis:
     image: redis:7
@@ -69,23 +30,12 @@ services:
       - .:/code
     env_file:
       - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
     depends_on:
-      - db
       - redis
       - web
 
-  nginx:
-    build: ./nginx
-    restart: always
-    ports:
-      - ${NGINX_PORT}:80
-    volumes:
-      - static_volume:/code/staticfiles
-      - media_volume:/code/mediafiles
-    depends_on:
-      - web
-
 volumes:
-  postgres_data:
   static_volume:
   media_volume:
