@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 from decouple import Csv, config
@@ -160,6 +161,13 @@ REST_USE_JWT = True
 JWT_AUTH_COOKIE = "phonenumber-auth"
 JWT_AUTH_REFRESH_COOKIE = "phonenumber-refresh-token"
 
+# Storefront sessions: simplejwt defaults to 5-minute access tokens (and matching
+# cookie expiry). AuthContext treats a 401 as logout and does not refresh.
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=12),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
+
 # ACCOUNT_EMAIL_VERIFICATION SETTINGS
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
@@ -197,8 +205,14 @@ STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 BACKEND_DOMAIN = config("BACKEND_DOMAIN", default="http://localhost:8000")
 FRONTEND_DOMAIN = config("FRONTEND_DOMAIN", default="http://localhost:3000")
 
-PAYMENT_SUCCESS_URL = config("PAYMENT_SUCCESS_URL", default="http://localhost:3000/success")
-PAYMENT_CANCEL_URL = config("PAYMENT_CANCEL_URL", default="http://localhost:3000/cancel")
+PAYMENT_SUCCESS_URL = config("PAYMENT_SUCCESS_URL", default="http://localhost:3000/checkout/success")
+PAYMENT_CANCEL_URL = config("PAYMENT_CANCEL_URL", default="http://localhost:3000/checkout/cancel")
+
+# Hubtel Online Checkout (same provider as UrbanAfrica)
+HUBTEL_API_ID = config("HUBTEL_API_ID", default="")
+HUBTEL_API_KEY = config("HUBTEL_API_KEY", default="")
+HUBTEL_COLLECTION_ACCOUNT_NUMBER = config("HUBTEL_COLLECTION_ACCOUNT_NUMBER", default="")
+HUBTEL_CHECKOUT_BASE = config("HUBTEL_CHECKOUT_BASE", default="https://payproxyapi.hubtel.com")
 
 # Celery
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")

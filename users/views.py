@@ -91,6 +91,11 @@ class SendOrResendSMSAPIView(GenericAPIView):
             sms_verification = PhoneNumber.objects.filter(
                 user=user, is_verified=False
             ).first()
+            if sms_verification is None:
+                return Response(
+                    {"detail": _("Phone number is already verified or not found.")},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             sms_verification.send_confirmation()
 
@@ -136,7 +141,8 @@ class ProfileAPIView(RetrieveUpdateAPIView):
     permission_classes = (IsUserProfileOwner,)
 
     def get_object(self):
-        return self.request.user.profile
+        profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        return profile
 
 
 class UserAPIView(RetrieveAPIView):

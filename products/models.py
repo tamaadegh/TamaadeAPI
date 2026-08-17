@@ -52,6 +52,22 @@ class Product(models.Model):
     image = models.ImageField(upload_to=product_image_path, blank=True, null=True)
     video = models.FileField(upload_to=product_video_path, blank=True, null=True)
     price = models.DecimalField(decimal_places=2, max_digits=10)
+    compare_at_price = models.DecimalField(
+        decimal_places=2,
+        max_digits=10,
+        blank=True,
+        null=True,
+        help_text="Original price before discount. Leave empty if the product is not on promo.",
+    )
+    promo_label = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text='Shown on the product card, e.g. "UP TO 70% OFF".',
+    )
+    brand = models.CharField(max_length=120, blank=True)
+    is_new = models.BooleanField(default=False)
+    is_express = models.BooleanField(default=False)
+    sale_ends_at = models.DateTimeField(blank=True, null=True)
     quantity = models.IntegerField(default=1)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -62,6 +78,14 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def discount_percent(self):
+        if not self.compare_at_price or self.compare_at_price <= 0:
+            return None
+        if self.price >= self.compare_at_price:
+            return None
+        return int(round((1 - (self.price / self.compare_at_price)) * 100))
 
 
 class ProductImage(models.Model):
@@ -155,6 +179,174 @@ class ProductImage(models.Model):
         if transformation:
             return imagekit.url({"src": self.url, "transformation": transformation})
         return self.url
+
+
+def banner_image_path(instance, filename):
+    return f"banners/{filename}"
+
+
+class HeroBanner(models.Model):
+    """Homepage carousel slide managed from the admin."""
+
+    title = models.CharField(max_length=200)
+    image = models.ImageField(upload_to=banner_image_path, blank=True, null=True)
+    image_url = models.URLField(
+        blank=True,
+        help_text="Used if no image file is uploaded.",
+    )
+    link = models.CharField(max_length=500, default="/deals")
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("order", "id")
+        verbose_name = "Hero banner"
+        verbose_name_plural = "Hero banners"
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def resolved_image(self):
+        if self.image:
+            return self.image.url
+        return self.image_url or None
+
+
+class PriceTier(models.Model):
+    """Homepage "Only X ₵" promo tiles."""
+
+    amount = models.PositiveIntegerField()
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("order", "amount")
+        verbose_name = "Price tier"
+        verbose_name_plural = "Price tiers"
+
+    def __str__(self):
+        return f"Only {self.amount}₵"
+
+
+class StorefrontPromo(models.Model):
+    """Site-wide promo copy (top strip, deals header)."""
+
+    key = models.SlugField(unique=True)
+    title = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=300, blank=True)
+    highlight = models.CharField(max_length=120, blank=True)
+    cta_label = models.CharField(max_length=80, blank=True)
+    link = models.CharField(max_length=500, default="/deals")
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("order", "id")
+        verbose_name = "Storefront promo"
+        verbose_name_plural = "Storefront promos"
+
+    def __str__(self):
+        return f"{self.key}: {self.title}"
+
+
+def merch_tile_image_path(instance, filename):
+    return f"merch/{instance.placement}/{filename}"
+
+
+class MerchTile(models.Model):
+    """Homepage category / promo circles managed from the admin."""
+
+    PLACEMENT_MAIN = "main"
+    PLACEMENT_FEATURED = "featured"
+    PLACEMENT_BOTTOM = "bottom"
+    PLACEMENT_CHOICES = (
+        (PLACEMENT_MAIN, "Main grid"),
+        (PLACEMENT_FEATURED, "Featured row"),
+        (PLACEMENT_BOTTOM, "Bottom grid"),
+    )
+
+    placement = models.CharField(max_length=20, choices=PLACEMENT_CHOICES, default=PLACEMENT_MAIN)
+    title = models.CharField(max_length=120)
+    image = models.ImageField(upload_to=merch_tile_image_path, blank=True, null=True)
+    image_url = models.URLField(blank=True)
+    link = models.CharField(max_length=500, default="/products")
+    badge = models.CharField(max_length=40, blank=True)
+    highlight = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("placement", "order", "id")
+        verbose_name = "Merch tile"
+        verbose_name_plural = "Merch tiles"
+
+    def __str__(self):
+        return f"{self.placement}: {self.title}"
+
+    @property
+    def resolved_image(self):
+        if self.image:
+            return self.image.url
+        return self.image_url or None
+
+
+class HomeSection(models.Model):
+    """Product rails on home / deals pages."""
+
+    SOURCE_NEWEST = "newest"
+    SOURCE_FEATURED = "featured"
+    SOURCE_BESTSELLERS = "bestsellers"
+    SOURCE_CHOICES = (
+        (SOURCE_NEWEST, "Newest"),
+        (SOURCE_FEATURED, "Featured"),
+        (SOURCE_BESTSELLERS, "Bestsellers"),
+    )
+    LOCATION_HOME = "home"
+    LOCATION_DEALS = "deals"
+    LOCATION_CHOICES = (
+        (LOCATION_HOME, "Home"),
+        (LOCATION_DEALS, "Deals"),
+    )
+
+    key = models.SlugField()
+    location = models.CharField(max_length=20, choices=LOCATION_CHOICES, default=LOCATION_HOME)
+    title = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=300, blank=True)
+    cta_label = models.CharField(max_length=80, default="View More")
+    link = models.CharField(max_length=500, default="/products")
+    product_source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default=SOURCE_FEATURED)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("location", "order", "id")
+        unique_together = ("location", "key")
+        verbose_name = "Home section"
+        verbose_name_plural = "Home sections"
+
+    def __str__(self):
+        return f"{self.location}/{self.key}: {self.title}"
+
+
+class NavLink(models.Model):
+    """Secondary category navigation under the header."""
+
+    label = models.CharField(max_length=120)
+    link = models.CharField(max_length=500)
+    has_dropdown = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("order", "id")
+        verbose_name = "Nav link"
+        verbose_name_plural = "Nav links"
+
+    def __str__(self):
+        return self.label
 
 
 class ProductVideo(models.Model):

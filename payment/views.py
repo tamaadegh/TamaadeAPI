@@ -1,4 +1,5 @@
 import stripe
+import uuid
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -72,12 +73,20 @@ class StripeCheckoutSessionCreateAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         order = get_object_or_404(Order, id=self.kwargs.get("order_id"))
+        if not order.order_items.exists():
+            return Response(
+                {"detail": "Your basket is empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         order_items = []
 
         for order_item in order.order_items.all():
             product = order_item.product
             quantity = order_item.quantity
+            images = []
+            if product.image:
+                images.append(f"{settings.BACKEND_DOMAIN}{product.image.url}")
 
             data = {
                 "price_data": {
@@ -85,8 +94,8 @@ class StripeCheckoutSessionCreateAPIView(APIView):
                     "unit_amount_decimal": product.price,
                     "product_data": {
                         "name": product.name,
-                        "description": product.desc,
-                        "images": [f"{settings.BACKEND_DOMAIN}{product.image.url}"],
+                        "description": product.desc or product.name,
+                        "images": images,
                     },
                 },
                 "quantity": quantity,
@@ -116,7 +125,9 @@ class StripeWebhookAPIView(APIView):
     def post(self, request, format=None):
         payload = request.body
         endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
-        sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
+        sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+        if not sig_header:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         event = None
 
         try:
@@ -128,10 +139,10 @@ class StripeWebhookAPIView(APIView):
 
         if event["type"] == "checkout.session.completed":
             session = event["data"]["object"]
-            customer_email = session["customer_details"]["email"]
-            order_id = session["metadata"]["order_id"]
-
-            print("Payment successfull")
+            customer_email = (session.get("customer_details") or {}).get("email")
+            order_id = (session.get("metadata") or {}).get("order_id")
+            if not order_id:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
 
             payment = get_object_or_404(Payment, order=order_id)
             payment.status = "C"
@@ -141,10 +152,193 @@ class StripeWebhookAPIView(APIView):
             order.status = "C"
             order.save()
 
-            # TODO - Decrease product quantity
-
-            send_payment_success_email_task.delay(customer_email)
+            if customer_email:
+                send_payment_success_email_task.delay(customer_email)
 
         # Can handle other events here.
 
         return Response(status=status.HTTP_200_OK)
+
+
+def _complete_paid_order(payment):
+    if payment.status == Payment.COMPLETED:
+        return
+    payment.status = Payment.COMPLETED
+    payment.save(update_fields=["status", "updated_at"])
+    order = payment.order
+    if order.status != Order.COMPLETED:
+        for item in order.order_items.select_related("product"):
+            product = item.product
+            product.quantity = max(0, product.quantity - item.quantity)
+            product.save(update_fields=["quantity"])
+        order.status = Order.COMPLETED
+        order.save(update_fields=["status", "updated_at"])
+
+
+class HubtelCheckoutAPIView(APIView):
+    """Start Hubtel Online Checkout for the buyer's pending cart."""
+
+    def post(self, request, *args, **kwargs):
+        from payment.hubtel import (
+            HubtelError,
+            hubtel_data,
+            hubtel_is_configured,
+            hubtel_response_code,
+            initiate_checkout,
+        )
+
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not hubtel_is_configured():
+            return Response(
+                {"detail": "Hubtel is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        order = (
+            Order.objects.filter(buyer=request.user, status=Order.PENDING)
+            .prefetch_related("order_items__product")
+            .first()
+        )
+        if not order or not order.order_items.exists():
+            return Response({"detail": "Your basket is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment, _ = Payment.objects.get_or_create(
+            order=order,
+            defaults={"payment_option": Payment.HUBTEL, "status": Payment.PENDING},
+        )
+        if payment.status == Payment.COMPLETED:
+            return Response({"detail": "This order is already paid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment.payment_option = Payment.HUBTEL
+        payment.status = Payment.PENDING
+        # Hubtel rejects reused clientReference (HTTP 400 / code 4000).
+        payment.client_reference = f"TMD{order.id}{uuid.uuid4().hex}"[:32]
+        payment.save()
+
+        backend = settings.BACKEND_DOMAIN.rstrip("/")
+        frontend = settings.FRONTEND_DOMAIN.rstrip("/")
+        callback_url = f"{backend}/api/user/payments/hubtel/callback/"
+        return_url = f"{frontend}/checkout/success?ref={payment.client_reference}"
+        cancel_url = f"{frontend}/checkout/cancel?ref={payment.client_reference}"
+        payee_name = request.user.get_full_name() or request.user.email
+        phone = ""
+        phone_record = getattr(request.user, "phone", None)
+        if phone_record is not None:
+            phone_value = getattr(phone_record, "phone_number", None)
+            phone = str(phone_value).lstrip("+") if phone_value else ""
+
+        try:
+            hubtel_response = initiate_checkout(
+                total_amount=order.total_cost,
+                description=f"Tamaade order {order.id}",
+                callback_url=callback_url,
+                return_url=return_url,
+                cancellation_url=cancel_url,
+                client_reference=payment.client_reference,
+                payee_name=payee_name,
+                payee_mobile_number=phone or None,
+                payee_email=request.user.email,
+            )
+        except HubtelError as exc:
+            payment.status = Payment.FAILED
+            payment.save(update_fields=["status", "updated_at"])
+            return Response(
+                {"detail": str(exc), "hubtel": exc.body},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        data = hubtel_data(hubtel_response)
+        code = hubtel_response_code(hubtel_response)
+        checkout_url = data.get("checkoutUrl") or data.get("CheckoutUrl")
+        checkout_direct_url = data.get("checkoutDirectUrl") or data.get("CheckoutDirectUrl")
+        checkout_id = data.get("checkoutId") or data.get("CheckoutId") or ""
+
+        if code not in ("0000", "0001") or not checkout_url:
+            payment.status = Payment.FAILED
+            payment.save(update_fields=["status", "updated_at"])
+            return Response(
+                {"detail": "Hubtel rejected the checkout request.", "hubtel": hubtel_response},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        payment.checkout_id = str(checkout_id)
+        payment.checkout_url = checkout_url
+        payment.status = Payment.PENDING
+        payment.save(update_fields=["checkout_id", "checkout_url", "status", "updated_at"])
+
+        return Response(
+            {
+                "checkout_url": checkout_url,
+                "checkout_direct_url": checkout_direct_url,
+                "checkout_id": checkout_id,
+                "client_reference": payment.client_reference,
+                "order_id": order.id,
+                "amount": str(order.total_cost),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class HubtelCallbackAPIView(APIView):
+    """Hubtel Online Checkout server-to-server callback."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request, *args, **kwargs):
+        from payment.hubtel import hubtel_data, hubtel_response_code
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        data = hubtel_data(payload)
+        client_reference = str(
+            data.get("ClientReference")
+            or data.get("clientReference")
+            or payload.get("ClientReference")
+            or payload.get("clientReference")
+            or ""
+        )
+        if not client_reference:
+            return Response({"ok": False, "detail": "Missing clientReference"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment = Payment.objects.filter(client_reference=client_reference).select_related("order").first()
+        if not payment:
+            return Response({"ok": False, "detail": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        code = hubtel_response_code(payload)
+        payment_status = str(data.get("Status") or data.get("status") or "").lower()
+        success = code == "0000" and payment_status in {"", "success", "paid"}
+
+        if success:
+            _complete_paid_order(payment)
+            return Response({"ok": True, "status": "paid"})
+
+        if payment.status != Payment.COMPLETED:
+            payment.status = Payment.FAILED
+            payment.save(update_fields=["status", "updated_at"])
+        return Response({"ok": True, "status": "failed"})
+
+
+class HubtelPaymentStatusAPIView(APIView):
+    """Buyer-facing status after returning from Hubtel checkout."""
+
+    def get(self, request, *args, **kwargs):
+        ref = request.query_params.get("ref") or request.query_params.get("client_reference")
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not ref:
+            return Response({"detail": "Missing payment reference."}, status=status.HTTP_400_BAD_REQUEST)
+        payment = Payment.objects.filter(
+            client_reference=ref,
+            order__buyer=request.user,
+        ).select_related("order").first()
+        if not payment:
+            return Response({"detail": "Payment not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {
+                "status": payment.status,
+                "order_id": payment.order_id,
+                "client_reference": payment.client_reference,
+                "paid": payment.status == Payment.COMPLETED,
+            }
+        )

@@ -119,7 +119,8 @@ class UserLoginSerializer(serializers.Serializer):
                 raise serializers.ValidationError(_("E-mail is not verified."))
 
         else:
-            if not user.phone.is_verified:
+            phone = getattr(user, "phone", None)
+            if phone is None or not phone.is_verified:
                 raise serializers.ValidationError(_("Phone number is not verified."))
 
         validated_data["user"] = user
@@ -208,7 +209,9 @@ class UserSerializer(serializers.ModelSerializer):
     """
 
     profile = ProfileSerializer(read_only=True)
-    phone_number = PhoneNumberField(source="phone", read_only=True)
+    phone_number = PhoneNumberField(
+        source="phone.phone_number", read_only=True, allow_null=True
+    )
     addresses = AddressReadOnlySerializer(read_only=True, many=True)
 
     class Meta:

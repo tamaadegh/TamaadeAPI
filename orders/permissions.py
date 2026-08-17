@@ -1,8 +1,11 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import BasePermission
 
 from orders.models import Order
+from payment.models import Payment
 
 
 class IsOrderPending(BasePermission):
@@ -57,12 +60,32 @@ class IsOrderItemPending(BasePermission):
         order_id = view.kwargs.get("order_id")
         order = get_object_or_404(Order, id=order_id)
 
-        if view.action in ("list",):
+        if view.action in ("list", "retrieve"):
             return True
 
-        return order.status == "P"
+        self._ensure_order_editable(order)
+        return True
 
     def has_object_permission(self, request, view, obj):
         if view.action in ("retrieve",):
             return True
-        return obj.order.status == "P"
+        self._ensure_order_editable(obj.order)
+        return True
+
+    def _ensure_order_editable(self, order):
+        try:
+            payment = order.payment
+        except ObjectDoesNotExist:
+            payment = None
+
+        already_paid = order.status != Order.PENDING or (
+            payment is not None and payment.status == Payment.COMPLETED
+        )
+        if already_paid:
+            raise ValidationError(
+                {
+                    "detail": _(
+                        "This order is already paid and cannot be modified."
+                    )
+                }
+            )

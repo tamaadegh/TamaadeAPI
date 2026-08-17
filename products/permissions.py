@@ -13,4 +13,8 @@ class IsSellerOrAdmin(BasePermission):
         if request.method in SAFE_METHODS:
             return True
 
-        return obj.seller == request.user or request.user.is_admin
+        seller = getattr(obj, "seller", None)
+        if seller is None:
+            product = getattr(obj, "product", None)
+            seller = getattr(product, "seller", None)
+        return seller == request.user or request.user.is_staff

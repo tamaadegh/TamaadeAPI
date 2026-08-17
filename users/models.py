@@ -40,6 +40,8 @@ class PhoneNumber(models.Model):
         return get_random_string(token_length, allowed_chars="0123456789")
 
     def is_security_code_expired(self):
+        if not self.sent:
+            return True
         expiration_date = self.sent + datetime.timedelta(
             minutes=settings.TOKEN_EXPIRE_MINUTES
         )

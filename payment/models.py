@@ -18,14 +18,22 @@ class Payment(models.Model):
     # Payment options
     PAYPAL = "P"
     STRIPE = "S"
+    HUBTEL = "H"
 
-    PAYMENT_CHOICES = ((PAYPAL, _("paypal")), (STRIPE, _("stripe")))
+    PAYMENT_CHOICES = (
+        (PAYPAL, _("paypal")),
+        (STRIPE, _("stripe")),
+        (HUBTEL, _("hubtel")),
+    )
 
     status = models.CharField(max_length=1, choices=STATUS_CHOICES, default=PENDING)
-    payment_option = models.CharField(max_length=1, choices=PAYMENT_CHOICES)
+    payment_option = models.CharField(max_length=1, choices=PAYMENT_CHOICES, default=HUBTEL)
     order = models.OneToOneField(
         Order, related_name="payment", on_delete=models.CASCADE
     )
+    client_reference = models.CharField(max_length=32, blank=True, null=True, unique=True)
+    checkout_id = models.CharField(max_length=80, blank=True)
+    checkout_url = models.URLField(max_length=1000, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

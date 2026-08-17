@@ -1,6 +1,5 @@
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 from products.models import Product
@@ -41,7 +40,7 @@ class Order(models.Model):
     def __str__(self):
         return self.buyer.get_full_name()
 
-    @cached_property
+    @property
     def total_cost(self):
         """
         Total cost of all the items in an order
@@ -67,7 +66,7 @@ class OrderItem(models.Model):
     def __str__(self):
         return self.order.buyer.get_full_name()
 
-    @cached_property
+    @property
     def cost(self):
         """
         Total cost of the ordered item

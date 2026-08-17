@@ -28,14 +28,26 @@ class OrderItemSerializer(serializers.ModelSerializer):
         read_only_fields = ("order",)
 
     def validate(self, validated_data):
-        order_quantity = validated_data["quantity"]
-        product_quantity = validated_data["product"].quantity
+        # PATCH may send only {quantity}; fall back to the existing item.
+        product = validated_data.get("product")
+        if product is None and self.instance is not None:
+            product = self.instance.product
+        if product is None:
+            raise serializers.ValidationError({"product": _("Product is required.")})
+
+        if "quantity" in validated_data:
+            order_quantity = validated_data["quantity"]
+        elif self.instance is not None:
+            order_quantity = self.instance.quantity
+        else:
+            raise serializers.ValidationError({"quantity": _("Quantity is required.")})
 
         order_id = self.context["view"].kwargs.get("order_id")
-        product = validated_data["product"]
+        if order_id is None and self.instance is not None:
+            order_id = self.instance.order_id
         current_item = OrderItem.objects.filter(order__id=order_id, product=product)
 
-        if order_quantity > product_quantity:
+        if order_quantity > product.quantity:
             error = {"quantity": _("Ordered quantity is more than the stock.")}
             raise serializers.ValidationError(error)
 
@@ -109,10 +121,24 @@ class OrderWriteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         orders_data = validated_data.pop("order_items")
-        order = Order.objects.create(**validated_data)
+        buyer = validated_data.get("buyer")
+        order = (
+            Order.objects.filter(buyer=buyer, status=Order.PENDING)
+            .order_by("created_at")
+            .first()
+        )
+        if not order:
+            order = Order.objects.create(**validated_data)
 
         for order_data in orders_data:
-            OrderItem.objects.create(order=order, **order_data)
+            item, created = OrderItem.objects.get_or_create(
+                order=order,
+                product=order_data["product"],
+                defaults={"quantity": order_data["quantity"]},
+            )
+            if not created:
+                item.quantity += order_data["quantity"]
+                item.save()
 
         return order
 

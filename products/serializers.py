@@ -1,6 +1,17 @@
 from rest_framework import serializers
 
-from products.models import Product, ProductCategory, ProductImage, ProductVideo
+from products.models import (
+    HeroBanner,
+    HomeSection,
+    MerchTile,
+    NavLink,
+    PriceTier,
+    Product,
+    ProductCategory,
+    ProductImage,
+    ProductVideo,
+    StorefrontPromo,
+)
 
 
 class ProductCategoryReadSerializer(serializers.ModelSerializer):
@@ -22,6 +33,7 @@ class ProductReadSerializer(serializers.ModelSerializer):
     category = serializers.CharField(source="category.name", read_only=True)
     images = serializers.SerializerMethodField()
     videos = serializers.SerializerMethodField()
+    discount_percent = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = Product
@@ -44,17 +56,19 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductImageCreateSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+
     class Meta:
         model = ProductImage
-        fields = ("id", "file_local", "url", "file_id", "is_primary", "order")
+        fields = ("id", "product", "file_local", "url", "file_id", "is_primary", "order")
         read_only_fields = ("url", "file_id")
 
 
 class ProductVideoCreateSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+
     class Meta:
         model = ProductVideo
-        fields = ("id", "file_local", "url", "file_id", "is_primary", "order")
+        fields = ("id", "product", "file_local", "url", "file_id", "is_primary", "order")
         read_only_fields = ("url", "file_id")
 
 
@@ -84,6 +98,12 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             "desc",
             "image",
             "price",
+            "compare_at_price",
+            "promo_label",
+            "brand",
+            "is_new",
+            "is_express",
+            "sale_ends_at",
             "quantity",
             "image_files",
             "video_files",
@@ -126,3 +146,105 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             ProductVideo.objects.create(product=instance, file_local=f, order=idx)
 
         return instance
+
+
+class HeroBannerSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    image_file = serializers.ImageField(source="image", write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = HeroBanner
+        fields = (
+            "id",
+            "title",
+            "image",
+            "image_file",
+            "image_url",
+            "link",
+            "order",
+            "is_active",
+        )
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            url = obj.image.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return obj.image_url or None
+
+
+class PriceTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PriceTier
+        fields = ("id", "amount", "order", "is_active")
+
+
+class StorefrontPromoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StorefrontPromo
+        fields = (
+            "id",
+            "key",
+            "title",
+            "subtitle",
+            "highlight",
+            "cta_label",
+            "link",
+            "is_active",
+            "order",
+        )
+
+
+class MerchTileSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    image_file = serializers.ImageField(source="image", write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = MerchTile
+        fields = (
+            "id",
+            "placement",
+            "title",
+            "image",
+            "image_file",
+            "image_url",
+            "link",
+            "badge",
+            "highlight",
+            "order",
+            "is_active",
+        )
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image:
+            url = obj.image.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return obj.image_url or None
+
+
+class HomeSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HomeSection
+        fields = (
+            "id",
+            "key",
+            "location",
+            "title",
+            "subtitle",
+            "cta_label",
+            "link",
+            "product_source",
+            "order",
+            "is_active",
+        )
+
+
+class NavLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NavLink
+        fields = ("id", "label", "link", "has_dropdown", "order", "is_active")
