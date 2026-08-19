@@ -10,7 +10,7 @@ class OrderItemInline(admin.TabularInline):
     can_delete = False
     
     def item_cost(self, obj):
-        return format_html('<strong>${:.2f}</strong>', obj.cost)
+        return format_html('<strong>GH₵{:.2f}</strong>', obj.cost)
     item_cost.short_description = 'Cost'
 
 
@@ -54,7 +54,7 @@ class OrderAdmin(admin.ModelAdmin):
     item_count.short_description = 'Items'
     
     def total_cost_display(self, obj):
-        return format_html('<strong>${:.2f}</strong>', obj.total_cost)
+        return format_html('<strong>GH₵{:.2f}</strong>', obj.total_cost)
     total_cost_display.short_description = 'Total Cost'
 
 
@@ -67,9 +67,9 @@ class OrderItemAdmin(admin.ModelAdmin):
     list_per_page = 25
     
     def product_price(self, obj):
-        return format_html('<strong>${:.2f}</strong>', obj.product.price)
+        return format_html('<strong>GH₵{:.2f}</strong>', obj.product.price)
     product_price.short_description = 'Unit Price'
     
     def item_cost(self, obj):
-        return format_html('<strong>${:.2f}</strong>', obj.cost)
+        return format_html('<strong>GH₵{:.2f}</strong>', obj.cost)
     item_cost.short_description = 'Total Cost'

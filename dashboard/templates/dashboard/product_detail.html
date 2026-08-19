@@ -61,7 +61,7 @@
         <h3 class="card-title">{{ product.name }}</h3>
         <p class="text-muted mb-2">Category: {{ product.category.name }}</p>
         <div class="mb-3">
-          <span class="badge bg-info fs-6">${{ product.price }}</span>
+          <span class="badge bg-info fs-6">GH₵{{ product.price }}</span>
           {% if product.quantity > 0 %}
             <span class="badge bg-success fs-6">In Stock: {{ product.quantity }}</span>
           {% else %}

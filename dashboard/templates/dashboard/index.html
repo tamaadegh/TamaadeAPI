@@ -6,10 +6,10 @@
   <div class="col-lg-3 col-6">
     <div class="small-box bg-info">
       <div class="inner">
-        <h3>{{ total_sales|floatformat:2 }}</h3>
+        <h3>GH₵{{ total_sales|floatformat:2 }}</h3>
         <p>Total Sales</p>
       </div>
-      <div class="icon"><i class="fas fa-dollar-sign"></i></div>
+      <div class="icon"><i class="fas fa-coins"></i></div>
     </div>
   </div>
   <div class="col-lg-3 col-6">
@@ -74,7 +74,7 @@
         <tr>
           <td>#{{ order.id }}</td>
           <td>{{ order.buyer.get_full_name|default:order.buyer.username }}</td>
-          <td>${{ order.total_cost|floatformat:2 }}</td>
+          <td>GH₵{{ order.total_cost|floatformat:2 }}</td>
           <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
           <td>
             {% if order.status == 'P' %}
