@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.response import Response
 
 from orders.models import Order, OrderItem
 from orders.permissions import (
@@ -53,6 +54,33 @@ class OrderViewSet(viewsets.ModelViewSet):
             return OrderWriteSerializer
 
         return OrderReadSerializer
+
+    def _read_response(self, instance, status_code):
+        """Always answer with the read shape, whatever the write used.
+
+        OrderWriteSerializer omits total_cost (and buyer/payment). The storefront
+        stores the create response directly as its cart state and then renders
+        formatPrice(order.total_cost), so replying with the write shape took the
+        whole cart page down with "Cannot read properties of undefined (reading
+        'toFixed')" the moment a customer added their first item. Reads and writes
+        now return the same object.
+        """
+        read = OrderReadSerializer(instance, context=self.get_serializer_context())
+        return Response(read.data, status=status_code)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return self._read_response(serializer.instance, status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return self._read_response(serializer.instance, status.HTTP_200_OK)
 
     def get_queryset(self):
         res = super().get_queryset()
