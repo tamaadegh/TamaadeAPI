@@ -172,7 +172,14 @@ SIMPLE_JWT = {
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# Overridable per environment. "mandatory" blocks login until the address is
+# confirmed, which permanently locks every new customer out unless outbound
+# e-mail actually works - see the EMAIL_BACKEND guard in production.py.
+ACCOUNT_EMAIL_VERIFICATION = config("ACCOUNT_EMAIL_VERIFICATION", default="mandatory")
+
+# Delivery failures are recorded as dashboard events rather than raised into
+# the customer's signup request.
+ACCOUNT_ADAPTER = "users.adapters.ResilientAccountAdapter"
 
 
 # Email
@@ -183,8 +190,11 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = config("EMAIL_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_PASSWORD", default="")
 
-# Phone number field
-PHONENUMBER_DEFAULT_REGION = "ET"
+# Phone number field. Tamaade sells in Ghana, so local formats like
+# 0244123456 / 0509103721 must validate. This was "ET" (Ethiopia), which
+# parsed every Ghanaian number as +251... and rejected it as invalid -
+# only a fully-qualified +233... string got through signup.
+PHONENUMBER_DEFAULT_REGION = "GH"
 
 # Token length for OTP
 TOKEN_LENGTH = 6

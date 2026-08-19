@@ -86,3 +86,14 @@ LOGGING = {
         },
     },
 }
+
+# Outbound e-mail. Tamaade's DNS points mail at Zoho, but no SMTP credentials
+# are configured on the server yet, and base.py otherwise aims at Gmail. Rather
+# than make every signup wait on a doomed SMTP handshake, fall back to a backend
+# that cannot fail and downgrade verification so customers can still log in.
+# Set EMAIL_USER + EMAIL_PASSWORD (and EMAIL_HOST for Zoho: smtp.zoho.com) to
+# turn real delivery on, then set ACCOUNT_EMAIL_VERIFICATION=mandatory.
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    ACCOUNT_EMAIL_VERIFICATION = config('ACCOUNT_EMAIL_VERIFICATION', default='optional')

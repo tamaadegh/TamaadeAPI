@@ -12,6 +12,8 @@ from .exceptions import (
     AccountNotRegisteredException,
     InvalidCredentialsException,
 )
+from dashboard.events import record_event
+from dashboard.models import SystemEvent
 from .models import Address, PhoneNumber, Profile
 
 User = get_user_model()
@@ -111,16 +113,46 @@ class UserLoginSerializer(serializers.Serializer):
         if not user.is_active:
             raise AccountDisabledException()
 
+        # Only enforce a verification gate the customer can actually clear.
+        #
+        # These two checks used to be unconditional, which locked every new
+        # customer out permanently: e-mail confirmation needs working SMTP and
+        # phone confirmation needs Twilio, and with neither configured there was
+        # no path to a verified state. Requiring proof that cannot be obtained is
+        # an outage, not a security control - so each gate now follows whether
+        # its delivery channel is actually live.
         if email:
-            email_address = user.emailaddress_set.filter(
-                email=user.email, verified=True
-            ).exists()
-            if not email_address:
-                raise serializers.ValidationError(_("E-mail is not verified."))
-
+            if getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "optional") == "mandatory":
+                verified = user.emailaddress_set.filter(
+                    email=user.email, verified=True
+                ).exists()
+                if not verified:
+                    record_event(
+                        message="Login refused: e-mail not verified",
+                        level=SystemEvent.LEVEL_WARNING,
+                        category=SystemEvent.CAT_LOGIN,
+                        detail="ACCOUNT_EMAIL_VERIFICATION=mandatory and this "
+                               "address has no confirmed EmailAddress record.",
+                        reference=user.email or "",
+                        user=user,
+                    )
+                    raise serializers.ValidationError(_("E-mail is not verified."))
         else:
+            sms_configured = all([
+                getattr(settings, "TWILIO_ACCOUNT_SID", ""),
+                getattr(settings, "TWILIO_AUTH_TOKEN", ""),
+                getattr(settings, "TWILIO_PHONE_NUMBER", ""),
+            ])
             phone = getattr(user, "phone", None)
-            if phone is None or not phone.is_verified:
+            if sms_configured and (phone is None or not phone.is_verified):
+                record_event(
+                    message="Login refused: phone not verified",
+                    level=SystemEvent.LEVEL_WARNING,
+                    category=SystemEvent.CAT_LOGIN,
+                    detail="No verified PhoneNumber record for this account.",
+                    reference=str(getattr(phone, "phone_number", "") or ""),
+                    user=user,
+                )
                 raise serializers.ValidationError(_("Phone number is not verified."))
 
         validated_data["user"] = user
