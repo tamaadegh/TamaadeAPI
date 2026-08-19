@@ -1,0 +1,291 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Insights &amp; Health{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h4 class="mb-0"><i class="fas fa-heart-pulse me-2"></i>Insights &amp; Health</h4>
+  <div class="btn-group btn-group-sm">
+    <a href="?days=7" class="btn btn-outline-secondary {% if window_days == 7 %}active{% endif %}">7 days</a>
+    <a href="?days=30" class="btn btn-outline-secondary {% if window_days == 30 %}active{% endif %}">30 days</a>
+    <a href="?days=90" class="btn btn-outline-secondary {% if window_days == 90 %}active{% endif %}">90 days</a>
+  </div>
+</div>
+
+{# Config gaps first: these break things for every customer, not just one. #}
+{% if integration_problems %}
+<div class="alert alert-warning">
+  <h6 class="alert-heading"><i class="fas fa-triangle-exclamation me-1"></i>Setup needs attention</h6>
+  <ul class="mb-0 small">
+    {% for i in integration_problems %}
+      <li><strong>{{ i.name }}</strong> — {{ i.detail }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<!-- ===================== PAYMENTS ===================== -->
+<h6 class="text-uppercase text-muted small fw-bold mt-4">Payments &middot; last {{ window_days }} days</h6>
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner">
+        <h3>GH₵{{ payment_stats.paid_value|floatformat:2 }}</h3>
+        <p>Paid &middot; {{ payment_stats.paid }} payment{{ payment_stats.paid|pluralize }}</p>
+      </div>
+      <div class="icon"><i class="fas fa-circle-check"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner text-dark">
+        <h3>{{ payment_stats.pending }}</h3>
+        <p>Started, not completed &middot; GH₵{{ payment_stats.pending_value|floatformat:2 }}</p>
+      </div>
+      <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner">
+        <h3>{{ payment_stats.failed }}</h3>
+        <p>Failed &middot; GH₵{{ payment_stats.failed_value|floatformat:2 }}</p>
+      </div>
+      <div class="icon"><i class="fas fa-circle-xmark"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner">
+        <h3>{% if payment_stats.success_rate is not None %}{{ payment_stats.success_rate }}%{% else %}—{% endif %}</h3>
+        <p>Success rate &middot; {{ payment_stats.attempted }} attempt{{ payment_stats.attempted|pluralize }}</p>
+      </div>
+      <div class="icon"><i class="fas fa-percent"></i></div>
+    </div>
+  </div>
+</div>
+
+{% if stuck_payments %}
+<div class="card mb-4">
+  <div class="card-header py-2">
+    <strong class="text-warning"><i class="fas fa-hourglass-half me-1"></i>Payments stuck pending &gt; 2 hours</strong>
+    <span class="text-muted small ms-2">Customer reached Hubtel but no confirmation ever arrived. Worth checking against the Hubtel dashboard.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-striped mb-0">
+      <thead><tr><th>Order</th><th>Customer</th><th>Reference</th><th>Started</th></tr></thead>
+      <tbody>
+      {% for p in stuck_payments %}
+        <tr>
+          <td>#{{ p.order_id }}</td>
+          <td>{{ p.order.buyer.get_full_name|default:p.order.buyer.email }}</td>
+          <td><code class="small">{{ p.client_reference|default:"—" }}</code></td>
+          <td class="text-muted small">{{ p.created_at|date:"d M Y H:i" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ===================== CARTS ===================== -->
+<h6 class="text-uppercase text-muted small fw-bold mt-4">Carts</h6>
+<div class="row">
+  <div class="col-lg-4 col-6">
+    <div class="small-box bg-info">
+      <div class="inner">
+        <h3>{{ cart_stats.active }}</h3>
+        <p>Active carts &middot; touched in last {{ cart_stats.stale_hours }}h</p>
+      </div>
+      <div class="icon"><i class="fas fa-cart-shopping"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-4 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner text-dark">
+        <h3>{{ cart_stats.abandoned }}</h3>
+        <p>Abandoned &middot; GH₵{{ cart_stats.abandoned_value|floatformat:2 }} unrealised</p>
+      </div>
+      <div class="icon"><i class="fas fa-cart-arrow-down"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-4 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner">
+        <h3>{{ cart_stats.reached_checkout }}</h3>
+        <p>Abandoned <em>after</em> reaching checkout</p>
+      </div>
+      <div class="icon"><i class="fas fa-door-open"></i></div>
+    </div>
+  </div>
+</div>
+
+{% if abandoned_list %}
+<div class="card mb-4">
+  <div class="card-header py-2">
+    <strong>Oldest abandoned carts</strong>
+    <span class="text-muted small ms-2">Pending orders with items, untouched for over {{ cart_stats.stale_hours }} hours.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-striped mb-0">
+      <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Value</th><th>Last activity</th></tr></thead>
+      <tbody>
+      {% for o in abandoned_list %}
+        <tr>
+          <td>#{{ o.id }}</td>
+          <td>{{ o.buyer.get_full_name|default:o.buyer.email }}</td>
+          <td>{{ o.items }}</td>
+          <td>GH₵{{ o.value|floatformat:2 }}</td>
+          <td class="text-muted small">{{ o.updated_at|date:"d M Y H:i" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<p class="text-muted small">No abandoned carts in this window.</p>
+{% endif %}
+
+<!-- ===================== SIGNUPS ===================== -->
+<h6 class="text-uppercase text-muted small fw-bold mt-4">Customer signups</h6>
+<div class="row">
+  <div class="col-lg-4 col-6">
+    <div class="small-box bg-success">
+      <div class="inner">
+        <h3>{{ signup_stats.succeeded }}</h3>
+        <p>Accounts created</p>
+      </div>
+      <div class="icon"><i class="fas fa-user-plus"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-4 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner">
+        <h3>{{ signup_stats.failed }}</h3>
+        <p>Signups rejected</p>
+      </div>
+      <div class="icon"><i class="fas fa-user-slash"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-4 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner text-dark">
+        <h3>{% if signup_stats.failure_rate is not None %}{{ signup_stats.failure_rate }}%{% else %}—{% endif %}</h3>
+        <p>Signup failure rate</p>
+      </div>
+      <div class="icon"><i class="fas fa-chart-pie"></i></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== PROBLEMS ===================== -->
+<div class="row mt-2">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header py-2"><strong>Problems by area</strong></div>
+      <div class="card-body p-0">
+        {% if by_category %}
+        <table class="table table-sm mb-0">
+          <tbody>
+          {% for row in by_category %}
+            <tr><td class="text-capitalize">{{ row.category }}</td><td class="text-end"><span class="badge bg-danger">{{ row.n }}</span></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted small p-3 mb-0"><i class="fas fa-check text-success me-1"></i>No warnings or errors in the last {{ window_days }} days.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header py-2"><strong>Integrations</strong></div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <tbody>
+          {% for i in integrations %}
+            <tr>
+              <td>
+                {{ i.name }}
+                <div class="text-muted small">{{ i.detail }}</div>
+              </td>
+              <td class="text-end align-middle">
+                {% if i.ok %}
+                  <span class="badge bg-success">OK</span>
+                {% else %}
+                  <span class="badge bg-danger">Not set</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header py-2">
+        <strong class="text-danger"><i class="fas fa-bug me-1"></i>Recent problems</strong>
+        <span class="text-muted small ms-2">Warnings and errors customers may have hit.</span>
+      </div>
+      <div class="table-responsive" style="max-height: 460px; overflow-y: auto;">
+        {% if problems %}
+        <table class="table table-sm table-striped mb-0">
+          <thead class="sticky-top bg-white"><tr><th>When</th><th>Area</th><th>What happened</th></tr></thead>
+          <tbody>
+          {% for e in problems %}
+            <tr>
+              <td class="text-muted small text-nowrap">{{ e.created_at|date:"d M H:i" }}</td>
+              <td>
+                <span class="badge {% if e.level == 'error' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ e.category }}</span>
+              </td>
+              <td>
+                {{ e.message }}
+                {% if e.reference %}<div class="text-muted small"><code>{{ e.reference }}</code></div>{% endif %}
+                {% if e.detail %}
+                <details class="small text-muted">
+                  <summary>details</summary>
+                  <pre class="mb-0 small" style="white-space: pre-wrap;">{{ e.detail }}</pre>
+                </details>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted small p-3 mb-0"><i class="fas fa-check text-success me-1"></i>Nothing has gone wrong in the last {{ window_days }} days.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header py-2"><strong>Activity log</strong> <span class="text-muted small ms-2">Everything recorded, newest first.</span></div>
+      <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+        {% if recent_events %}
+        <table class="table table-sm mb-0">
+          <tbody>
+          {% for e in recent_events %}
+            <tr>
+              <td class="text-muted small text-nowrap">{{ e.created_at|date:"d M H:i" }}</td>
+              <td>
+                <span class="badge {% if e.level == 'error' %}bg-danger{% elif e.level == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ e.category }}</span>
+              </td>
+              <td class="small">{{ e.message }}{% if e.reference %} <code class="text-muted">{{ e.reference }}</code>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted small p-3 mb-0">No events recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

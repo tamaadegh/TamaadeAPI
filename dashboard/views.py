@@ -233,3 +233,184 @@ def users_list(request):
         "dashboard/users_list.html",
         {"page_obj": page_obj, "spent": spent_dict},
     )
+
+
+@never_cache
+@staff_member_required
+def insights(request):
+    """Operational health: did payments land, are carts being abandoned, is
+    anything failing for customers?
+
+    Everything here is derived from real rows - Payment/Order state plus the
+    SystemEvent log - so an empty panel means "nothing has happened yet", not
+    "not implemented".
+    """
+    from django.conf import settings
+    from django.db.models import Q
+
+    from dashboard.models import SystemEvent
+    from payment.models import Payment
+
+    now = timezone.now()
+    window_days = int(request.GET.get("days") or 30)
+    since = now - timedelta(days=window_days)
+
+    # ---- Payments -----------------------------------------------------
+    # Order.total_cost is a Python property, so money has to be summed via an
+    # annotation over the line items rather than read off the order.
+    line_value = ExpressionWrapper(
+        F("order__order_items__quantity") * F("order__order_items__product__price"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+
+    def money(qs):
+        return qs.aggregate(v=Sum(line_value))["v"] or 0
+
+    payments = Payment.objects.filter(created_at__gte=since)
+    paid_qs = payments.filter(status=Payment.COMPLETED)
+    pending_qs = payments.filter(status=Payment.PENDING)
+    failed_qs = payments.filter(status=Payment.FAILED)
+
+    paid_count = paid_qs.count()
+    pending_count = pending_qs.count()
+    failed_count = failed_qs.count()
+    attempted = paid_count + pending_count + failed_count
+
+    payment_stats = {
+        "attempted": attempted,
+        "paid": paid_count,
+        "pending": pending_count,
+        "failed": failed_count,
+        "paid_value": float(money(paid_qs)),
+        "pending_value": float(money(pending_qs)),
+        "failed_value": float(money(failed_qs)),
+        "success_rate": round(paid_count / attempted * 100, 1) if attempted else None,
+        "failure_rate": round(failed_count / attempted * 100, 1) if attempted else None,
+    }
+
+    # ---- Carts --------------------------------------------------------
+    # A cart here is a PENDING order holding items. "Abandoned" = untouched for
+    # longer than the stale window; anything with a payment row got as far as
+    # checkout, which makes it the highest-intent group to follow up.
+    stale_hours = int(request.GET.get("stale_hours") or 24)
+    stale_before = now - timedelta(hours=stale_hours)
+
+    cart_value = ExpressionWrapper(
+        F("order_items__quantity") * F("order_items__product__price"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+    carts = (
+        Order.objects.filter(status=Order.PENDING)
+        .annotate(items=Count("order_items", distinct=True))
+        .filter(items__gt=0)
+    )
+    active_carts = carts.filter(updated_at__gte=stale_before)
+    abandoned = carts.filter(updated_at__lt=stale_before)
+
+    abandoned_list = (
+        abandoned.select_related("buyer")
+        .annotate(value=Sum(cart_value))
+        .order_by("updated_at")[:20]
+    )
+
+    cart_stats = {
+        "stale_hours": stale_hours,
+        "active": active_carts.count(),
+        "abandoned": abandoned.count(),
+        "abandoned_value": float(abandoned.aggregate(v=Sum(cart_value))["v"] or 0),
+        # Reached Hubtel but never completed - worth chasing first.
+        "reached_checkout": abandoned.filter(
+            Q(payment__status=Payment.PENDING) | Q(payment__status=Payment.FAILED)
+        ).count(),
+    }
+
+    # ---- Signup / auth health ----------------------------------------
+    events = SystemEvent.objects.filter(created_at__gte=since)
+    signup_ok = events.filter(category=SystemEvent.CAT_SIGNUP, level=SystemEvent.LEVEL_INFO).count()
+    signup_bad = events.filter(
+        category=SystemEvent.CAT_SIGNUP,
+        level__in=[SystemEvent.LEVEL_WARNING, SystemEvent.LEVEL_ERROR],
+    ).count()
+    signup_attempts = signup_ok + signup_bad
+
+    signup_stats = {
+        "succeeded": signup_ok,
+        "failed": signup_bad,
+        "failure_rate": round(signup_bad / signup_attempts * 100, 1) if signup_attempts else None,
+    }
+
+    # ---- Problem feed -------------------------------------------------
+    problems = (
+        events.filter(level__in=[SystemEvent.LEVEL_WARNING, SystemEvent.LEVEL_ERROR])
+        .select_related("user")
+        .order_by("-created_at")[:40]
+    )
+    by_category = list(
+        events.filter(level__in=[SystemEvent.LEVEL_WARNING, SystemEvent.LEVEL_ERROR])
+        .values("category")
+        .annotate(n=Count("id"))
+        .order_by("-n")
+    )
+    recent_events = (
+        events.select_related("user").order_by("-created_at")[:40]
+    )
+
+    # ---- Integration health ------------------------------------------
+    # Config gaps that silently degrade the storefront. Checked live rather than
+    # hardcoded, so the panel stays honest as the .env changes.
+    email_ready = bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
+    integrations = [
+        {
+            "name": "Hubtel payments",
+            "ok": all([
+                settings.HUBTEL_API_ID,
+                settings.HUBTEL_API_KEY,
+                settings.HUBTEL_COLLECTION_ACCOUNT_NUMBER,
+            ]),
+            "detail": "Customers cannot pay without this.",
+        },
+        {
+            "name": "Outbound e-mail",
+            "ok": email_ready,
+            "detail": (
+                "Verification and password-reset e-mails are delivered."
+                if email_ready
+                else "No SMTP credentials: verification e-mails are not delivered, so "
+                     "e-mail verification is running in optional mode."
+            ),
+        },
+        {
+            "name": "SMS (Twilio)",
+            "ok": all([
+                settings.TWILIO_ACCOUNT_SID,
+                settings.TWILIO_AUTH_TOKEN,
+                settings.TWILIO_PHONE_NUMBER,
+            ]),
+            "detail": "Phone OTP codes cannot be sent without this.",
+        },
+        {
+            "name": "ImageKit uploads",
+            "ok": bool(settings.IMAGEKIT_PRIVATE_KEY and settings.IMAGEKIT_URL_ENDPOINT),
+            "detail": "New product images are uploaded here.",
+        },
+    ]
+
+    context = {
+        "window_days": window_days,
+        "payment_stats": payment_stats,
+        "cart_stats": cart_stats,
+        "abandoned_list": abandoned_list,
+        "signup_stats": signup_stats,
+        "problems": problems,
+        "problem_count": len(problems),
+        "by_category": by_category,
+        "recent_events": recent_events,
+        "integrations": integrations,
+        "integration_problems": [i for i in integrations if not i["ok"]],
+        "stuck_payments": (
+            Payment.objects.filter(status=Payment.PENDING, created_at__lt=now - timedelta(hours=2))
+            .select_related("order__buyer")
+            .order_by("created_at")[:20]
+        ),
+    }
+    return render(request, "dashboard/insights.html", context)

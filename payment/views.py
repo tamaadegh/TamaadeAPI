@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
+from dashboard.events import record_event
+from dashboard.models import SystemEvent
 from orders.models import Order
 from orders.permissions import IsOrderByBuyerOrAdmin
 from payment.models import Payment
@@ -190,6 +192,14 @@ class HubtelCheckoutAPIView(APIView):
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
         if not hubtel_is_configured():
+            record_event(
+                message="Checkout blocked: Hubtel is not configured",
+                level=SystemEvent.LEVEL_ERROR,
+                category=SystemEvent.CAT_INTEGRATION,
+                detail="HUBTEL_API_ID / HUBTEL_API_KEY / "
+                       "HUBTEL_COLLECTION_ACCOUNT_NUMBER are not all set.",
+                user=request.user,
+            )
             return Response(
                 {"detail": "Hubtel is not configured."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -243,6 +253,14 @@ class HubtelCheckoutAPIView(APIView):
         except HubtelError as exc:
             payment.status = Payment.FAILED
             payment.save(update_fields=["status", "updated_at"])
+            record_event(
+                message="Hubtel checkout request failed",
+                level=SystemEvent.LEVEL_ERROR,
+                category=SystemEvent.CAT_PAYMENT,
+                detail=f"order={order.id} amount={order.total_cost}\n{exc}\n{exc.body}",
+                reference=payment.client_reference or "",
+                user=request.user,
+            )
             return Response(
                 {"detail": str(exc), "hubtel": exc.body},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -257,6 +275,14 @@ class HubtelCheckoutAPIView(APIView):
         if code not in ("0000", "0001") or not checkout_url:
             payment.status = Payment.FAILED
             payment.save(update_fields=["status", "updated_at"])
+            record_event(
+                message="Hubtel rejected the checkout request",
+                level=SystemEvent.LEVEL_ERROR,
+                category=SystemEvent.CAT_PAYMENT,
+                detail=f"order={order.id} responseCode={code}\n{hubtel_response}",
+                reference=payment.client_reference or "",
+                user=request.user,
+            )
             return Response(
                 {"detail": "Hubtel rejected the checkout request.", "hubtel": hubtel_response},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -266,6 +292,15 @@ class HubtelCheckoutAPIView(APIView):
         payment.checkout_url = checkout_url
         payment.status = Payment.PENDING
         payment.save(update_fields=["checkout_id", "checkout_url", "status", "updated_at"])
+
+        record_event(
+            message="Checkout started at Hubtel",
+            level=SystemEvent.LEVEL_INFO,
+            category=SystemEvent.CAT_PAYMENT,
+            detail=f"order={order.id} amount=GHS {order.total_cost}",
+            reference=payment.client_reference or "",
+            user=request.user,
+        )
 
         return Response(
             {
@@ -299,10 +334,23 @@ class HubtelCallbackAPIView(APIView):
             or ""
         )
         if not client_reference:
+            record_event(
+                message="Hubtel callback missing clientReference",
+                level=SystemEvent.LEVEL_WARNING,
+                category=SystemEvent.CAT_PAYMENT,
+                detail=str(payload)[:2000],
+            )
             return Response({"ok": False, "detail": "Missing clientReference"}, status=status.HTTP_400_BAD_REQUEST)
 
         payment = Payment.objects.filter(client_reference=client_reference).select_related("order").first()
         if not payment:
+            record_event(
+                message="Hubtel callback for unknown payment",
+                level=SystemEvent.LEVEL_WARNING,
+                category=SystemEvent.CAT_PAYMENT,
+                detail=str(payload)[:2000],
+                reference=client_reference,
+            )
             return Response({"ok": False, "detail": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
 
         code = hubtel_response_code(payload)
@@ -311,11 +359,27 @@ class HubtelCallbackAPIView(APIView):
 
         if success:
             _complete_paid_order(payment)
+            record_event(
+                message="Payment received",
+                level=SystemEvent.LEVEL_INFO,
+                category=SystemEvent.CAT_PAYMENT,
+                detail=f"order={payment.order_id} amount=GHS {payment.order.total_cost}",
+                reference=client_reference,
+                user=payment.order.buyer,
+            )
             return Response({"ok": True, "status": "paid"})
 
         if payment.status != Payment.COMPLETED:
             payment.status = Payment.FAILED
             payment.save(update_fields=["status", "updated_at"])
+        record_event(
+            message="Payment failed at Hubtel",
+            level=SystemEvent.LEVEL_WARNING,
+            category=SystemEvent.CAT_PAYMENT,
+            detail=f"order={payment.order_id} responseCode={code} status={payment_status!r}",
+            reference=client_reference,
+            user=payment.order.buyer,
+        )
         return Response({"ok": True, "status": "failed"})
 
 

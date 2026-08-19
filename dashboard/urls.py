@@ -5,6 +5,7 @@ app_name = "dashboard"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("insights/", views.insights, name="insights"),
     path("products/", views.products_list, name="products_list"),
     path("products/<int:product_id>/", views.product_detail, name="product_detail"),
     path("orders/", views.orders_list, name="orders_list"),
