@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AddressViewSet,
+    DeleteAccountAPIView,
     ProfileAPIView,
     SendOrResendSMSAPIView,
     UserAPIView,
@@ -25,5 +26,6 @@ urlpatterns = [
     ),
     path("", UserAPIView.as_view(), name="user_detail"),
     path("profile/", ProfileAPIView.as_view(), name="profile_detail"),
+    path("delete-account/", DeleteAccountAPIView.as_view(), name="delete_account"),
     path("profile/address/", include(router.urls)),
 ]

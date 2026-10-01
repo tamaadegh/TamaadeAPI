@@ -37,7 +37,7 @@
         <tr>
           <td>#{{ order.id }}</td>
           <td>{{ order.buyer.get_full_name|default:order.buyer.username }}</td>
-          <td>${{ order.total_cost|floatformat:2 }}</td>
+          <td>GH₵{{ order.total_cost|floatformat:2 }}</td>
           <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
           <td>
             {% if order.status == 'P' %}

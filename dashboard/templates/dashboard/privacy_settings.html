@@ -1,0 +1,45 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Privacy Page{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h3 class="mb-0"><i class="fas fa-user-shield me-2"></i>Privacy Page</h3>
+  <span class="text-muted small">Last updated {{ policy.updated_at|date:"M d, Y H:i" }}</span>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.title.id_for_label }}">Title</label>
+            {{ form.title }}
+            {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.content.id_for_label }}">Content</label>
+            {{ form.content }}
+            {% for error in form.content.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <button class="btn btn-primary"><i class="fa fa-save me-1"></i> Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body small">
+        <h6 class="fw-bold">Formatting</h6>
+        <p class="mb-2">This text is shown on the website (<code>/privacy</code>) and in the mobile app.</p>
+        <ul class="mb-0 ps-3">
+          <li>Leave a blank line between paragraphs.</li>
+          <li>Start a line with <code>## </code> for a heading.</li>
+          <li>Start a line with <code>- </code> for a bullet point.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

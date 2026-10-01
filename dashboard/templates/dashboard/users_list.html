@@ -27,7 +27,7 @@
             <span class="badge bg-info">{{ user.total_orders }}</span>
           </td>
           <td>
-            ${{ spent|get_item:user.id|default:0|floatformat:2 }}
+            GH₵{{ spent|get_item:user.id|default:0|floatformat:2 }}
           </td>
         </tr>
         {% empty %}

@@ -12,7 +12,14 @@ from django.views.decorators.cache import never_cache
 
 from orders.models import Order, OrderItem
 from products.models import Product, ProductCategory, ProductImage, ProductVideo
-from .forms import ProductForm, OrderStatusForm
+from sitecontent.models import BackgroundSound, PrivacyPolicy, SoundSettings
+from .forms import (
+    BackgroundSoundForm,
+    OrderStatusForm,
+    PrivacyPolicyForm,
+    ProductForm,
+    SoundSettingsForm,
+)
 
 User = get_user_model()
 
@@ -233,3 +240,94 @@ def users_list(request):
         "dashboard/users_list.html",
         {"page_obj": page_obj, "spent": spent_dict},
     )
+
+
+@never_cache
+@staff_member_required
+def privacy_settings(request):
+    policy = PrivacyPolicy.load()
+    if request.method == "POST":
+        form = PrivacyPolicyForm(request.POST, instance=policy)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Privacy page updated. It is live on web and mobile.")
+            return redirect("dashboard:privacy_settings")
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = PrivacyPolicyForm(instance=policy)
+    return render(request, "dashboard/privacy_settings.html", {"form": form, "policy": policy})
+
+
+@never_cache
+@staff_member_required
+def sound_settings(request):
+    settings_obj = SoundSettings.load()
+    settings_form = SoundSettingsForm(instance=settings_obj)
+    create_form = BackgroundSoundForm(initial={"is_active": not BackgroundSound.objects.exists()})
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "toggle":
+            settings_form = SoundSettingsForm(request.POST, instance=settings_obj)
+            if settings_form.is_valid():
+                settings_form.save()
+                state = "enabled" if settings_obj.music_enabled else "disabled"
+                messages.success(request, f"Background music {state} for all users.")
+                return redirect("dashboard:sound_settings")
+        elif action == "create":
+            create_form = BackgroundSoundForm(request.POST, request.FILES)
+            if create_form.is_valid():
+                sound = create_form.save()
+                messages.success(request, f'Sound "{sound.title}" uploaded.')
+                return redirect("dashboard:sound_settings")
+            messages.error(request, "Could not upload the sound. Please check the form.")
+
+    sounds = BackgroundSound.objects.defer("audio_data")
+    edit_forms = [(sound, BackgroundSoundForm(instance=sound, prefix=f"s{sound.pk}")) for sound in sounds]
+    return render(
+        request,
+        "dashboard/sound_settings.html",
+        {
+            "settings_form": settings_form,
+            "sound_settings": settings_obj,
+            "create_form": create_form,
+            "edit_forms": edit_forms,
+        },
+    )
+
+
+@never_cache
+@staff_member_required
+def sound_update(request, sound_id):
+    sound = get_object_or_404(BackgroundSound, id=sound_id)
+    if request.method == "POST":
+        form = BackgroundSoundForm(request.POST, request.FILES, instance=sound, prefix=f"s{sound.pk}")
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Sound "{sound.title}" updated.')
+        else:
+            errors = "; ".join(e for errs in form.errors.values() for e in errs)
+            messages.error(request, f"Could not update the sound: {errors}")
+    return redirect("dashboard:sound_settings")
+
+
+@never_cache
+@staff_member_required
+def sound_activate(request, sound_id):
+    sound = get_object_or_404(BackgroundSound.objects.defer("audio_data"), id=sound_id)
+    if request.method == "POST":
+        sound.is_active = True
+        sound.save(update_fields=["is_active", "updated_at"])
+        messages.success(request, f'"{sound.title}" is now the background music.')
+    return redirect("dashboard:sound_settings")
+
+
+@never_cache
+@staff_member_required
+def sound_delete(request, sound_id):
+    sound = get_object_or_404(BackgroundSound.objects.defer("audio_data"), id=sound_id)
+    if request.method == "POST":
+        title = sound.title
+        sound.delete()
+        messages.success(request, f'Sound "{title}" deleted.')
+    return redirect("dashboard:sound_settings")

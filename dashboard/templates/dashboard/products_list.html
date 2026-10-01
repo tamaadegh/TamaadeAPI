@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load static %}
 {% load imagekit_tags %}
 {% block title %}Products{% endblock %}
 
@@ -38,7 +39,7 @@
         {% elif product.image %}
           <img class="card-img-top img-fit-cover" src="{{ product.image.url }}" alt="{{ product.name }}" style="height: 180px;">
         {% else %}
-          <img class="card-img-top img-fit-cover" src="https://via.placeholder.com/600x180?text=No+Image" alt="no image" style="height: 180px;">
+          <img class="card-img-top img-fit-cover logo-fallback" src="{% static 'dashboard/tamaade-logo.png' %}" alt="Tamaade" style="height: 180px;">
         {% endif %}
         {% if product.video %}
           <span class="play-overlay"><i class="fa fa-play"></i></span>
@@ -51,7 +52,7 @@
         <div class="text-muted small mb-2">Category: {{ product.category.name }}</div>
         <div class="d-flex align-items-center justify-content-between">
           <div>
-            <span class="badge bg-info">${{ product.price }}</span>
+            <span class="badge bg-info">GH₵{{ product.price }}</span>
             {% if product.quantity > 0 %}
               <span class="badge bg-success">In Stock: {{ product.quantity }}</span>
             {% else %}
@@ -85,7 +86,7 @@
           {% elif product.image %}
             <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid mb-3" style="max-height: 360px; object-fit: contain;">
           {% else %}
-            <img src="https://via.placeholder.com/800x360?text=No+Image" alt="no image" class="img-fluid mb-3" style="max-height: 360px; object-fit: contain;">
+            <img src="{% static 'dashboard/tamaade-logo.png' %}" alt="Tamaade" class="img-fluid mb-3 logo-fallback" style="max-height: 360px; object-fit: contain;">
           {% endif %}
           {% if product.video %}
             <video class="w-100" controls preload="metadata" style="max-height: 360px;">
@@ -284,7 +285,7 @@
             <div class="col-md-6">
               <label class="form-label fw-bold">{{ form.price.label }} <span class="text-danger">*</span></label>
               <div class="input-group">
-                <span class="input-group-text">$</span>
+                <span class="input-group-text">GH₵</span>
                 {{ form.price }}
               </div>
               {% if form.price.errors %}

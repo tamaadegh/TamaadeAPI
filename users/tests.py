@@ -89,3 +89,37 @@ class AuthApiTests(TestCase):
         token = response.json().get("access") or response.json().get("access_token")
         remaining = AccessToken(token)["exp"] - timezone.now().timestamp()
         self.assertGreaterEqual(remaining, timedelta(hours=8).total_seconds())
+
+
+class DeleteAccountTests(TestCase):
+    def setUp(self):
+        from allauth.account.models import EmailAddress
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="del@test.com", email="del@test.com", password="DelPass123!",
+            first_name="Ama", last_name="Mensah",
+        )
+        EmailAddress.objects.create(user=self.user, email=self.user.email, verified=True, primary=True)
+        login = self.client.post("/api/user/login/", {"email": "del@test.com", "password": "DelPass123!"}, format="json")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.json().get('access') or login.json().get('access_token')}")
+
+    def test_requires_correct_password(self):
+        response = self.client.post("/api/user/delete-account/", {"password": "wrong"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+
+    def test_anonymises_and_deactivates(self):
+        from users.models import Profile
+
+        response = self.client.post("/api/user/delete-account/", {"password": "DelPass123!"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        self.assertNotIn("del@test.com", self.user.email)
+        self.assertEqual(self.user.first_name, "Deleted")
+        self.assertFalse(Profile.objects.filter(user=self.user).exists())
+        relogin = APIClient().post("/api/user/login/", {"email": "del@test.com", "password": "DelPass123!"}, format="json")
+        self.assertIn(relogin.status_code, (400, 401))

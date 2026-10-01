@@ -1,14 +1,17 @@
 import stripe
 import uuid
+from urllib.parse import urlencode
+
 from django.conf import settings
-from django.shortcuts import get_object_or_404
+from django.db import transaction
+from django.shortcuts import get_object_or_404, render
 from rest_framework import status
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from orders.models import Order
+from orders.models import Order, OrderItem
 from orders.permissions import IsOrderByBuyerOrAdmin
 from payment.models import Payment
 from payment.permissions import (
@@ -175,6 +178,58 @@ def _complete_paid_order(payment):
         order.save(update_fields=["status", "updated_at"])
 
 
+def _sync_pending_order(user, items):
+    """Replace the buyer's pending order items with `items`
+    ([{product, name, quantity}]). Returns an error message or None."""
+    from products.models import Product
+
+    if not isinstance(items, list) or not items:
+        return "Your basket is empty."
+
+    resolved = {}
+    for raw in items:
+        if not isinstance(raw, dict):
+            return "Invalid basket item."
+        try:
+            quantity = int(raw.get("quantity") or 0)
+        except (TypeError, ValueError):
+            return "Invalid quantity."
+        if quantity <= 0:
+            continue
+        product = None
+        product_id = raw.get("product")
+        name = str(raw.get("name") or "").strip()
+        if product_id not in (None, ""):
+            product = Product.objects.filter(pk=product_id).first()
+        # The app ships a bundled catalog whose ids can differ from this
+        # database, so the name is the fallback key.
+        if product is not None and name and product.name.lower() != name.lower():
+            product = None
+        if product is None and name:
+            product = Product.objects.filter(name__iexact=name).order_by("pk").first()
+        if product is None:
+            return f'"{name or product_id}" is no longer available.'
+        if product.seller_id == user.pk:
+            return "Adding your own product to your order is not allowed."
+        resolved[product.pk] = (product, resolved.get(product.pk, (None, 0))[1] + quantity)
+
+    if not resolved:
+        return "Your basket is empty."
+    for product, quantity in resolved.values():
+        if quantity > product.quantity:
+            return f'Only {product.quantity} left in stock for "{product.name}".'
+
+    with transaction.atomic():
+        order = Order.objects.filter(buyer=user, status=Order.PENDING).first()
+        if order is None:
+            order = Order.objects.create(buyer=user)
+        order.order_items.all().delete()
+        OrderItem.objects.bulk_create(
+            [OrderItem(order=order, product=p, quantity=q) for p, q in resolved.values()]
+        )
+    return None
+
+
 class HubtelCheckoutAPIView(APIView):
     """Start Hubtel Online Checkout for the buyer's pending cart."""
 
@@ -194,6 +249,14 @@ class HubtelCheckoutAPIView(APIView):
                 {"detail": "Hubtel is not configured."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+
+        platform = str(request.data.get("platform") or "web").lower()
+        items = request.data.get("items")
+        if items is not None:
+            # Mobile keeps its cart locally and sends it with the checkout request.
+            error = _sync_pending_order(request.user, items)
+            if error:
+                return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
 
         order = (
             Order.objects.filter(buyer=request.user, status=Order.PENDING)
@@ -219,8 +282,15 @@ class HubtelCheckoutAPIView(APIView):
         backend = settings.BACKEND_DOMAIN.rstrip("/")
         frontend = settings.FRONTEND_DOMAIN.rstrip("/")
         callback_url = f"{backend}/api/user/payments/hubtel/callback/"
-        return_url = f"{frontend}/checkout/success?ref={payment.client_reference}"
-        cancel_url = f"{frontend}/checkout/cancel?ref={payment.client_reference}"
+        if platform in ("android", "ios", "mobile"):
+            # Hubtel only accepts http(s) URLs, so bounce through the backend,
+            # which sends the browser back into the app (tamaade://checkout/result).
+            app_return = f"{backend}/api/user/payments/hubtel/app-return/"
+            return_url = f"{app_return}?ref={payment.client_reference}&result=success"
+            cancel_url = f"{app_return}?ref={payment.client_reference}&result=cancel"
+        else:
+            return_url = f"{frontend}/checkout/success?ref={payment.client_reference}"
+            cancel_url = f"{frontend}/checkout/cancel?ref={payment.client_reference}"
         payee_name = request.user.get_full_name() or request.user.email
         phone = ""
         phone_record = getattr(request.user, "phone", None)
@@ -341,4 +411,23 @@ class HubtelPaymentStatusAPIView(APIView):
                 "client_reference": payment.client_reference,
                 "paid": payment.status == Payment.COMPLETED,
             }
+        )
+
+
+class HubtelAppReturnView(APIView):
+    """Hubtel return/cancel URL for the mobile app: sends the browser back to
+    the app with tamaade://checkout/result. The app then asks the status API,
+    so nothing here is trusted as proof of payment."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, *args, **kwargs):
+        ref = "".join(ch for ch in str(request.query_params.get("ref", "")) if ch.isalnum())[:32]
+        result = "success" if request.query_params.get("result") == "success" else "cancel"
+        deep_link = f"tamaade://checkout/result?{urlencode({'ref': ref, 'result': result})}"
+        return render(
+            request,
+            "payment/app_return.html",
+            {"deep_link": deep_link, "success": result == "success"},
         )

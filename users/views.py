@@ -2,6 +2,7 @@ from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import RegisterView, SocialLoginView
 from dj_rest_auth.views import LoginView
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext as _
 from rest_framework import permissions, status
@@ -171,3 +172,57 @@ class AddressViewSet(ReadOnlyModelViewSet):
         res = super().get_queryset()
         user = self.request.user
         return res.filter(user=user)
+
+
+class DeleteAccountAPIView(GenericAPIView):
+    """
+    Delete the signed-in user's account (required by Google Play).
+
+    Personal data (name, email, phone, addresses, profile, carts) is erased and
+    the account is deactivated. Paid orders are kept, anonymised, for accounting.
+    """
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        from allauth.account.models import EmailAddress
+        from allauth.socialaccount.models import SocialAccount
+        from django.db import transaction
+        from rest_framework.authtoken.models import Token
+
+        from orders.models import Order
+
+        user = request.user
+        password = request.data.get("password") or ""
+        if user.has_usable_password() and not user.check_password(password):
+            return Response(
+                {"detail": _("Incorrect password.")}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"detail": _("Staff accounts must be removed by an administrator.")},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        with transaction.atomic():
+            Order.objects.filter(buyer=user, status=Order.PENDING).delete()
+            Address.objects.filter(user=user).delete()
+            PhoneNumber.objects.filter(user=user).delete()
+            EmailAddress.objects.filter(user=user).delete()
+            SocialAccount.objects.filter(user=user).delete()
+            Token.objects.filter(user=user).delete()
+            anon = f"deleted-{user.pk}"
+            user.username = anon
+            user.email = f"{anon}@deleted.tamaade.invalid"
+            user.first_name = "Deleted"
+            user.last_name = "User"
+            user.is_active = False
+            user.set_unusable_password()
+            user.save()
+            # After save: the post_save signal would recreate the profile.
+            Profile.objects.filter(user=user).delete()
+
+        response = Response({"detail": _("Your account has been deleted.")})
+        response.delete_cookie(settings.JWT_AUTH_COOKIE)
+        response.delete_cookie(settings.JWT_AUTH_REFRESH_COOKIE)
+        return response
