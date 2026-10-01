@@ -1,0 +1,144 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Sound{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h3 class="mb-0"><i class="fas fa-music me-2"></i>Sound</h3>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createSoundModal"><i class="fa fa-upload me-1"></i> Upload sound</button>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" class="d-flex flex-wrap align-items-center gap-3">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="toggle" />
+      <div class="form-check form-switch mb-0">
+        {{ settings_form.music_enabled }}
+        <label class="form-check-label" for="{{ settings_form.music_enabled.id_for_label }}">{{ settings_form.music_enabled.label }}</label>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary">Save</button>
+      <span class="text-muted small">Users can still turn music off for themselves in the web and mobile settings.</span>
+    </form>
+  </div>
+</div>
+
+{% if not sound_settings.music_enabled %}
+<div class="alert alert-warning"><i class="fas fa-volume-mute me-2"></i>Background music is turned off for everyone.</div>
+{% endif %}
+
+<div class="row">
+  {% for sound, form in edit_forms %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card mb-3 {% if sound.is_active %}border-success{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h5 class="card-title mb-0 text-truncate" title="{{ sound.title }}">{{ sound.title }}</h5>
+          {% if sound.is_active %}<span class="badge bg-success">Playing in apps</span>{% endif %}
+        </div>
+        <div class="text-muted small mb-2">{{ sound.file_name }} · {{ sound.size|filesizeformat }} · volume {{ sound.volume }}</div>
+        <audio controls preload="none" class="w-100 mb-2" src="{% url 'sitecontent:sound_audio' sound.id %}?v={{ sound.version }}"></audio>
+        <div class="d-flex gap-2">
+          {% if not sound.is_active %}
+          <form method="post" action="{% url 'dashboard:sound_activate' sound.id %}">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-success"><i class="fa fa-check me-1"></i>Use this sound</button>
+          </form>
+          {% endif %}
+          <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editSound-{{ sound.id }}"><i class="fa fa-pen me-1"></i>Edit</button>
+          <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteSound-{{ sound.id }}"><i class="fa fa-trash me-1"></i>Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editSound-{{ sound.id }}" tabindex="-1">
+    <div class="modal-dialog">
+      <form class="modal-content" method="post" enctype="multipart/form-data" action="{% url 'dashboard:sound_update' sound.id %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit sound</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Title</label>{{ form.title }}</div>
+          <div class="mb-3"><label class="form-label">Volume (0 – 1)</label>{{ form.volume }}</div>
+          <div class="mb-3">
+            <label class="form-label">Replace audio file (optional)</label>
+            {{ form.audio_file }}
+            <div class="form-text">Leave empty to keep "{{ sound.file_name }}".</div>
+          </div>
+          <div class="form-check">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="deleteSound-{{ sound.id }}" tabindex="-1">
+    <div class="modal-dialog">
+      <form class="modal-content" method="post" action="{% url 'dashboard:sound_delete' sound.id %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Delete sound</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">Delete "{{ sound.title }}"? {% if sound.is_active %}No music will play until another sound is activated.{% endif %}</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card"><div class="card-body text-center text-muted py-5">
+      <i class="fas fa-music fa-2x mb-2"></i>
+      <p class="mb-0">No sound yet. Upload one to play background music on web and mobile.</p>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="modal fade" id="createSoundModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create" />
+      <div class="modal-header">
+        <h5 class="modal-title">Upload sound</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% for error in create_form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+        <div class="mb-3">
+          <label class="form-label">Title</label>{{ create_form.title }}
+          {% for error in create_form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ create_form.audio_file.label }}</label>{{ create_form.audio_file }}
+          {% for error in create_form.audio_file.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Volume (0 – 1)</label>{{ create_form.volume }}
+          {% for error in create_form.volume.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="form-check">{{ create_form.is_active }}<label class="form-check-label" for="{{ create_form.is_active.id_for_label }}">{{ create_form.is_active.label }}</label></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary"><i class="fa fa-upload me-1"></i> Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+{% if create_form.errors %}
+<script>new bootstrap.Modal(document.getElementById("createSoundModal")).show();</script>
+{% endif %}
+{% endblock %}

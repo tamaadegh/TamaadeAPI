@@ -20,6 +20,7 @@ urlpatterns = [
     path("api/products/", include("products.urls", namespace="products")),
     path("api/user/orders/", include("orders.urls", namespace="orders")),
     path("api/user/payments/", include("payment.urls", namespace="payment")),
+    path("api/content/", include("sitecontent.urls", namespace="sitecontent")),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("dashboard/", include("dashboard.urls", namespace="dashboard")),
     path(

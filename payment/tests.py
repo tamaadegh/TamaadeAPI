@@ -252,6 +252,63 @@ class HubtelPaymentAPITests(TestCase):
         self.assertIn(payment.client_reference, kwargs["return_url"])
         self.assertIn(payment.client_reference, kwargs["cancellation_url"])
 
+    def test_mobile_checkout_syncs_items_and_returns_to_app(self):
+        self._login()
+        with patch("payment.hubtel.initiate_checkout", return_value=self._hubtel_ok()) as mock_init:
+            response = self.client.post(
+                "/api/user/payments/hubtel/checkout/",
+                # Bundled app catalog id differs from the DB: resolved by name.
+                {"platform": "android", "items": [{"product": 9999, "name": "kettle", "quantity": 2}]},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201, response.json())
+        order = Order.objects.get(buyer=self.buyer, status=Order.PENDING)
+        self.assertEqual(
+            list(order.order_items.values_list("product_id", "quantity")),
+            [(self.product.id, 2)],
+        )
+        kwargs = mock_init.call_args.kwargs
+        self.assertIn("/api/user/payments/hubtel/app-return/", kwargs["return_url"])
+        self.assertIn("result=success", kwargs["return_url"])
+        self.assertIn("result=cancel", kwargs["cancellation_url"])
+
+    def test_mobile_checkout_replaces_existing_pending_items(self):
+        order = self._cart(quantity=1)
+        with patch("payment.hubtel.initiate_checkout", return_value=self._hubtel_ok()):
+            response = self.client.post(
+                "/api/user/payments/hubtel/checkout/",
+                {"platform": "android", "items": [{"product": self.product.id, "name": "Kettle", "quantity": 3}]},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["order_id"], order.id)
+        self.assertEqual(order.order_items.get().quantity, 3)
+
+    def test_mobile_checkout_rejects_unknown_product_and_overstock(self):
+        self._login()
+        unknown = self.client.post(
+            "/api/user/payments/hubtel/checkout/",
+            {"platform": "android", "items": [{"product": 9999, "name": "Ghost", "quantity": 1}]},
+            format="json",
+        )
+        self.assertEqual(unknown.status_code, 400)
+        too_many = self.client.post(
+            "/api/user/payments/hubtel/checkout/",
+            {"platform": "android", "items": [{"product": self.product.id, "name": "Kettle", "quantity": 50}]},
+            format="json",
+        )
+        self.assertEqual(too_many.status_code, 400)
+        self.assertIn("stock", too_many.json()["detail"])
+
+    def test_app_return_page_deep_links_into_app(self):
+        response = self.client.get(
+            "/api/user/payments/hubtel/app-return/?ref=TMD1abc&result=success"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tamaade://checkout/result?ref=TMD1abc&amp;result=success")
+        cancel = self.client.get("/api/user/payments/hubtel/app-return/?ref=<script>&result=x")
+        self.assertContains(cancel, "ref=script&amp;result=cancel")
+
     def test_checkout_rotates_client_reference_on_retry(self):
         order = self._cart()
         with patch("payment.hubtel.initiate_checkout", return_value=self._hubtel_ok()):
