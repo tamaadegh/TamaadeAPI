@@ -1,6 +1,6 @@
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from dj_rest_auth.registration.views import RegisterView, SocialLoginView
+from dj_rest_auth.registration.views import SocialLoginView
 from dj_rest_auth.views import LoginView
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -20,82 +20,51 @@ from users.models import Address, PhoneNumber, Profile
 from users.permissions import IsUserAddressOwner, IsUserProfileOwner
 from users.serializers import (
     AddressReadOnlySerializer,
-    PhoneNumberSerializer,
     ProfileSerializer,
     UserLoginSerializer,
     UserRegistrationSerializer,
+    OtpRequestSerializer,
+    OtpVerifySerializer,
     UserSerializer,
-    VerifyPhoneNumberSerialzier,
+    UserUpdateSerializer,
 )
 
 User = get_user_model()
 
 
-class UserRegisterationAPIView(RegisterView):
+class UserRegisterationAPIView(GenericAPIView):
     """
-    Register new users using phone number or email and password.
+    Create an account and sign in straight away (no code). Needs an e-mail or
+    a Ghana phone number (or both) and a password. E-mail accounts then sign
+    in with their password, phone accounts with an SMS code.
     """
 
+    authentication_classes = []
+    permission_classes = (permissions.AllowAny,)
     serializer_class = UserRegistrationSerializer
 
-    def create(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as exc:
+        if not serializer.is_valid():
             # Surface why real customers cannot sign up. Never log credentials.
             record_event(
                 message="Signup rejected",
                 level=SystemEvent.LEVEL_WARNING,
                 category=SystemEvent.CAT_SIGNUP,
-                detail=str(getattr(serializer, "errors", exc))[:2000],
+                detail=str(serializer.errors)[:2000],
                 reference=str(request.data.get("email") or request.data.get("phone_number") or ""),
             )
-            raise
-
-        # dj_rest_auth's perform_create returns the created user; the
-        # serializer does not expose it as `.instance`.
-        user = self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-
-        email = request.data.get("email", None)
-        phone_number = request.data.get("phone_number", None)
-
-        # Previously this re-dispatched SendOrResendSMSAPIView with
-        # request._request. DRF had already consumed the request body to build
-        # `serializer`, so the second view's access to request.body raised
-        # RawPostDataException and every phone signup returned 500 - with the
-        # account already created. Call the OTP helper directly instead.
-        #
-        # Read the number back off the saved record rather than reusing the raw
-        # input: PhoneNumberField stores normalised E.164 (+233...), so looking
-        # up the "0244..." the customer typed would not match.
-        sms_sent = False
-        phone_record = getattr(user, "phone", None) if user is not None else None
-        if phone_record is not None:
-            sms_sent = send_phone_verification(str(phone_record.phone_number))
-
-        if email and sms_sent:
-            detail = _("Verification e-mail and SMS sent.")
-        elif email:
-            detail = _("Account created. Check your e-mail to verify your address.")
-        elif sms_sent:
-            detail = _("Verification SMS sent.")
-        else:
-            detail = _("Account created.")
-
+            return _invalid(serializer)
+        user = serializer.save()
         record_event(
             message="New customer signed up",
             level=SystemEvent.LEVEL_INFO,
             category=SystemEvent.CAT_SIGNUP,
-            detail=f"email={email or '-'} phone={phone_number or '-'} sms_sent={sms_sent}",
-            reference=str(email or phone_number or ""),
+            detail=f"email={request.data.get('email') or '-'} phone={request.data.get('phone_number') or '-'}",
+            reference=str(request.data.get("email") or request.data.get("phone_number") or ""),
             user=user,
         )
-
-        return Response(
-            {"detail": detail}, status=status.HTTP_201_CREATED, headers=headers
-        )
+        return _signed_in_response(request, user, status.HTTP_201_CREATED)
 
 
 class UserLoginAPIView(LoginView):
@@ -104,83 +73,6 @@ class UserLoginAPIView(LoginView):
     """
 
     serializer_class = UserLoginSerializer
-
-
-def send_phone_verification(phone_number):
-    """Send an OTP to an unverified number. Returns True only if one went out.
-
-    Shared by registration and the resend endpoint so neither has to re-dispatch
-    the other as a view. Never raises: SMS is a notification, and a Twilio
-    outage must not fail the request that triggered it.
-    """
-    try:
-        sms_verification = PhoneNumber.objects.filter(
-            phone_number=phone_number, is_verified=False
-        ).first()
-        if sms_verification is None:
-            return False
-        sent = bool(sms_verification.send_confirmation())
-        if not sent:
-            record_event(
-                message="Verification SMS not sent",
-                level=SystemEvent.LEVEL_WARNING,
-                category=SystemEvent.CAT_SMS,
-                detail="send_confirmation() returned no confirmation - Twilio "
-                       "credentials are probably unset.",
-                reference=str(phone_number),
-            )
-        return sent
-    except Exception as exc:
-        record_event(
-            message="Verification SMS failed",
-            level=SystemEvent.LEVEL_ERROR,
-            category=SystemEvent.CAT_SMS,
-            detail=f"{type(exc).__name__}: {exc}",
-            reference=str(phone_number),
-        )
-        return False
-
-
-class SendOrResendSMSAPIView(GenericAPIView):
-    """
-    Check if submitted phone number is a valid phone number and send OTP.
-    """
-
-    serializer_class = PhoneNumberSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-
-        if serializer.is_valid():
-            phone_number = str(serializer.validated_data["phone_number"])
-            if not PhoneNumber.objects.filter(
-                phone_number=phone_number, is_verified=False
-            ).exists():
-                return Response(
-                    {"detail": _("Phone number is already verified or not found.")},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            send_phone_verification(phone_number)
-            return Response(status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class VerifyPhoneNumberAPIView(GenericAPIView):
-    """
-    Check if submitted phone number and OTP matches and verify the user.
-    """
-
-    serializer_class = VerifyPhoneNumberSerialzier
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-
-        if serializer.is_valid():
-            message = {"detail": _("Phone number successfully verified.")}
-            return Response(message, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GoogleLogin(SocialLoginView):
@@ -207,17 +99,25 @@ class ProfileAPIView(RetrieveUpdateAPIView):
         return profile
 
 
-class UserAPIView(RetrieveAPIView):
+class UserAPIView(RetrieveUpdateAPIView):
     """
-    Get user details
+    Get the signed-in user, or PATCH names / e-mail / phone number.
     """
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ["get", "patch", "head", "options"]
 
     def get_object(self):
         return self.request.user
+
+    def patch(self, request, *args, **kwargs):
+        serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return _invalid(serializer)
+        user = serializer.save()
+        return Response(UserSerializer(User.objects.get(pk=user.pk)).data)
 
 
 class AddressViewSet(ReadOnlyModelViewSet):
@@ -287,3 +187,142 @@ class DeleteAccountAPIView(GenericAPIView):
         response.delete_cookie(settings.JWT_AUTH_COOKIE)
         response.delete_cookie(settings.JWT_AUTH_REFRESH_COOKIE)
         return response
+
+
+def _client_ip(request):
+    # Render appends the real client address as the LAST X-Forwarded-For entry;
+    # earlier entries are client-supplied and can be spoofed.
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def _user_for_phone(phone):
+    return (
+        User.objects.filter(phone__phone_number=phone, is_active=True)
+        .select_related("phone")
+        .first()
+    )
+
+
+def _signed_in_response(request, user, status_code):
+    """JWT pair + user, like the e-mail login, with the auth cookies set."""
+    from dj_rest_auth.jwt_auth import set_jwt_cookies
+    from dj_rest_auth.utils import jwt_encode
+
+    access, refresh = jwt_encode(user)
+    response = Response(
+        {
+            "access": str(access),
+            "refresh": str(refresh),
+            "user": UserSerializer(user).data,
+        },
+        status=status_code,
+    )
+    set_jwt_cookies(response, access, refresh)
+    return response
+
+
+def _invalid(serializer):
+    """400 with a single readable `detail` plus the per-field `errors`."""
+    errors = serializer.errors
+    first = next(iter(errors.values()), [""])
+    detail = first[0] if isinstance(first, list) and first else str(first)
+    return Response({"detail": str(detail), "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def _too_many(exc):
+    response = Response(
+        {"detail": str(exc), "retry_after": exc.retry_after},
+        status=status.HTTP_429_TOO_MANY_REQUESTS,
+    )
+    response["Retry-After"] = str(exc.retry_after)
+    return response
+
+
+class OtpRequestAPIView(GenericAPIView):
+    """
+    Send a 6-digit sign-in code by SMS to an existing account's number.
+    """
+
+    authentication_classes = []
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = OtpRequestSerializer
+
+    def post(self, request, *args, **kwargs):
+        from users import otp
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return _invalid(serializer)
+        phone = serializer.validated_data["phone_number"]
+        purpose = otp.PURPOSE_LOGIN
+
+        if _user_for_phone(phone) is None:
+            return Response(
+                {
+                    "detail": _("No account found with this number. Create an account first."),
+                    "code": "not_registered",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            otp.enforce_send_limits(phone, purpose, _client_ip(request))
+            otp.create_and_send_otp(phone, purpose)
+        except otp.TooManyRequests as exc:
+            return _too_many(exc)
+        except (otp.SmsNotConfiguredError, otp.SmsDeliveryError):
+            return Response(
+                {"detail": _("We could not send the SMS right now. Please try again later.")},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "detail": _("Code sent."),
+                "phone_number": phone,
+                "expires_in": settings.OTP_EXPIRE_MINUTES * 60,
+                "resend_in": settings.OTP_RESEND_COOLDOWN_SECONDS,
+            }
+        )
+
+
+class OtpVerifyAPIView(GenericAPIView):
+    """
+    Check the SMS code and sign the user in.
+    """
+
+    authentication_classes = []
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = OtpVerifySerializer
+
+    def post(self, request, *args, **kwargs):
+        from users import otp
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return _invalid(serializer)
+        phone = serializer.validated_data["phone_number"]
+        code = serializer.validated_data["code"]
+
+        user = _user_for_phone(phone)
+        if user is None:
+            return Response(
+                {"detail": _("No account found with this number. Create an account first."), "code": "not_registered"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            otp.verify_otp(phone, otp.PURPOSE_LOGIN, code)
+        except otp.TooManyRequests as exc:
+            return _too_many(exc)
+        except otp.OtpVerificationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.phone.is_verified:
+            # Receiving the code proves the number belongs to this user.
+            user.phone.is_verified = True
+            user.phone.save(update_fields=["is_verified", "updated_at"])
+        return _signed_in_response(request, user, status.HTTP_200_OK)

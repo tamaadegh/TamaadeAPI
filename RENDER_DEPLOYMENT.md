@@ -40,10 +40,14 @@ DJANGO_SETTINGS_MODULE=config.settings.production
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=your-gmail-app-password
 
-# Twilio (for SMS verification)
-TWILIO_ACCOUNT_SID=your-twilio-sid
-TWILIO_AUTH_TOKEN=your-twilio-token
-TWILIO_PHONE_NUMBER=+1234567890
+# Phone OTP sign-in via Hubtel SMS (users/otp.py)
+OTP_SMS_PROVIDER=hubtel          # disabled | log (DEBUG only) | hubtel
+HUBTEL_SMS_CLIENT_ID=your-hubtel-sms-client-id
+HUBTEL_SMS_CLIENT_SECRET=your-hubtel-sms-client-secret
+HUBTEL_SMS_SENDER_ID=Tamaade     # must be a sender ID approved by Hubtel
+# Google Play review login (one number, fixed code, login only). Leave empty to disable.
+OTP_REVIEW_PHONE=
+OTP_REVIEW_CODE=
 
 # Stripe (use test keys first, then live keys)
 STRIPE_PUBLISHABLE_KEY=pk_test_...

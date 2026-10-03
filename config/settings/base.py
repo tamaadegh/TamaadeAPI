@@ -173,11 +173,8 @@ SIMPLE_JWT = {
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
-# Overridable per environment. "mandatory" blocks login until the address is
-# confirmed, which permanently locks every new customer out unless outbound
-# e-mail actually works - see the EMAIL_BACKEND guard in production.py.
-ACCOUNT_EMAIL_VERIFICATION = config("ACCOUNT_EMAIL_VERIFICATION", default="mandatory")
-
+# E-mail + password sign-in is a plain credentials check: no confirmation mail.
+ACCOUNT_EMAIL_VERIFICATION = "none"
 # Delivery failures are recorded as dashboard events rather than raised into
 # the customer's signup request.
 ACCOUNT_ADAPTER = "users.adapters.ResilientAccountAdapter"
@@ -185,6 +182,7 @@ ACCOUNT_ADAPTER = "users.adapters.ResilientAccountAdapter"
 
 # Email
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_TIMEOUT = 10  # seconds; a slow SMTP server must not hang sign-up
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
@@ -197,16 +195,30 @@ EMAIL_HOST_PASSWORD = config("EMAIL_PASSWORD", default="")
 # only a fully-qualified +233... string got through signup.
 PHONENUMBER_DEFAULT_REGION = "GH"
 
-# Token length for OTP
-TOKEN_LENGTH = 6
-
-# Token expiry
-TOKEN_EXPIRE_MINUTES = 3
-
-# Twilio
-TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
-TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
-TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
+# Phone OTP sign-in (users/otp.py). Every code is a paid Hubtel SMS.
+# "disabled" | "log" (DEBUG only: code is logged, never sent) | "hubtel"
+OTP_SMS_PROVIDER = config("OTP_SMS_PROVIDER", default="disabled")
+HUBTEL_SMS_CLIENT_ID = config("HUBTEL_SMS_CLIENT_ID", default="")
+HUBTEL_SMS_CLIENT_SECRET = config("HUBTEL_SMS_CLIENT_SECRET", default="")
+# Must be a sender ID approved by Hubtel, or messages are rejected.
+HUBTEL_SMS_SENDER_ID = config("HUBTEL_SMS_SENDER_ID", default="Tamaade")
+OTP_EXPIRE_MINUTES = config("OTP_EXPIRE_MINUTES", default=10, cast=int)
+OTP_MAX_ATTEMPTS = config("OTP_MAX_ATTEMPTS", default=5, cast=int)
+OTP_RATE_LIMIT_ENABLED = config("OTP_RATE_LIMIT_ENABLED", default=True, cast=bool)
+OTP_RESEND_COOLDOWN_SECONDS = config("OTP_RESEND_COOLDOWN_SECONDS", default=60, cast=int)
+OTP_PHONE_SHORT_MAX = config("OTP_PHONE_SHORT_MAX", default=3, cast=int)  # per 15 min
+OTP_PHONE_DAILY_MAX = config("OTP_PHONE_DAILY_MAX", default=10, cast=int)
+# Ghana carriers put many users behind one CGNAT address: raise if real users hit these.
+OTP_IP_HOURLY_MAX = config("OTP_IP_HOURLY_MAX", default=10, cast=int)
+OTP_IP_DAILY_MAX = config("OTP_IP_DAILY_MAX", default=30, cast=int)
+OTP_GLOBAL_HOURLY_MAX = config("OTP_GLOBAL_HOURLY_MAX", default=600, cast=int)
+OTP_GLOBAL_DAILY_MAX = config("OTP_GLOBAL_DAILY_MAX", default=6000, cast=int)
+OTP_VERIFY_FAIL_MAX = config("OTP_VERIFY_FAIL_MAX", default=10, cast=int)
+OTP_VERIFY_LOCKOUT_SECONDS = config("OTP_VERIFY_LOCKOUT_SECONDS", default=3600, cast=int)
+# Google Play review access: ONE number that accepts a fixed code for login.
+# Unset both to revoke.
+OTP_REVIEW_PHONE = config("OTP_REVIEW_PHONE", default="")
+OTP_REVIEW_CODE = config("OTP_REVIEW_CODE", default="")
 
 # Stripe
 STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="")

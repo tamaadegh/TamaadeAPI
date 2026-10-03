@@ -34,7 +34,7 @@ REST_FRAMEWORK = {
     ),
 }
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-ACCOUNT_EMAIL_VERIFICATION = "optional"
+ACCOUNT_EMAIL_VERIFICATION = "none"
 IMAGEKIT_UPLOAD_ASYNC = False
 STATICFILES_DIRS = []
 
