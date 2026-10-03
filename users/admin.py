@@ -63,7 +63,7 @@ class PhoneNumberAdmin(admin.ModelAdmin):
     list_display = ['user', 'phone_number', 'verification_status', 'created_at']
     list_filter = ['is_verified', 'created_at']
     search_fields = ['user__email', 'phone_number']
-    readonly_fields = ['created_at', 'updated_at', 'security_code', 'sent']
+    readonly_fields = ['created_at', 'updated_at']
     list_per_page = 25
     
     def verification_status(self, obj):

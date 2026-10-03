@@ -1,11 +1,9 @@
-from dj_rest_auth.registration.serializers import RegisterSerializer
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.utils.translation import gettext as _
 from django_countries.serializers import CountryFieldMixin
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 
 from .exceptions import (
     AccountDisabledException,
@@ -17,60 +15,72 @@ from .models import Address, PhoneNumber, Profile
 User = get_user_model()
 
 
-class UserRegistrationSerializer(RegisterSerializer):
+class UserRegistrationSerializer(serializers.Serializer):
     """
-    Serializer for registrating new users using email or phone number.
+    Sign-up with an e-mail and/or a Ghana phone number, plus a password.
     """
 
-    username = None
-    first_name = serializers.CharField(required=True, write_only=True)
-    last_name = serializers.CharField(required=True, write_only=True)
-    phone_number = PhoneNumberField(
-        required=False,
-        write_only=True,
-        validators=[
-            UniqueValidator(
-                queryset=PhoneNumber.objects.all(),
-                message=_("A user is already registered with this phone number."),
-            )
-        ],
-    )
-    email = serializers.EmailField(required=False)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
 
-    def validate(self, validated_data):
-        email = validated_data.get("email", None)
-        phone_number = validated_data.get("phone_number", None)
+    def validate_email(self, value):
+        value = (value or "").strip().lower()
+        if value and User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError(_("A user is already registered with this e-mail address."))
+        return value
 
-        if not (email or phone_number):
+    def validate_phone_number(self, value):
+        from users.otp import is_valid_ghana_mobile, normalize_ghana_phone
+
+        if not (value or "").strip():
+            return ""
+        if not is_valid_ghana_mobile(value):
+            raise serializers.ValidationError(_("Enter a valid Ghana mobile number."))
+        phone = normalize_ghana_phone(value)
+        if PhoneNumber.objects.filter(phone_number=phone).exists():
+            raise serializers.ValidationError(_("A user is already registered with this phone number."))
+        return phone
+
+    def validate(self, data):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        data["first_name"] = data["first_name"].strip()
+        data["last_name"] = data["last_name"].strip()
+        if not data.get("email") and not data.get("phone_number"):
             raise serializers.ValidationError(_("Enter an email or a phone number."))
+        candidate = User(first_name=data["first_name"], last_name=data["last_name"], email=data.get("email", ""))
+        try:
+            validate_password(data["password"], candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)})
+        return data
 
-        if validated_data["password1"] != validated_data["password2"]:
-            raise serializers.ValidationError(
-                _("The two password fields didn't match.")
+    def create(self, data):
+        from django.db import transaction
+        from django.utils.crypto import get_random_string
+
+        phone = data.get("phone_number") or ""
+        email = data.get("email") or ""
+        username = f"tmd{phone.lstrip('+')}" if phone else email
+        if User.objects.filter(username=username).exists():
+            username = f"{username}-{get_random_string(6)}"
+        with transaction.atomic():
+            user = User(
+                username=username[:150],
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                email=email,
             )
-
-        return validated_data
-
-    def get_cleaned_data_extra(self):
-        return {
-            "phone_number": self.validated_data.get("phone_number", ""),
-            "first_name": self.validated_data.get("first_name", ""),
-            "last_name": self.validated_data.get("last_name", ""),
-        }
-
-    def create_extra(self, user, validated_data):
-        user.first_name = self.validated_data.get("first_name")
-        user.last_name = self.validated_data.get("last_name")
-        user.save()
-
-        phone_number = validated_data.get("phone_number")
-
-        if phone_number:
-            PhoneNumber.objects.create(user=user, phone_number=phone_number)
-            user.phone.save()
-
-    def custom_signup(self, request, user):
-        self.create_extra(user, self.get_cleaned_data_extra())
+            user.set_password(data["password"])
+            user.save()
+            if phone:
+                # Not verified yet: the first SMS-code sign-in verifies it.
+                PhoneNumber.objects.create(user=user, phone_number=phone, is_verified=False)
+        return user
 
 
 class UserLoginSerializer(serializers.Serializer):
@@ -111,68 +121,12 @@ class UserLoginSerializer(serializers.Serializer):
         if not user.is_active:
             raise AccountDisabledException()
 
-        if email:
-            email_address = user.emailaddress_set.filter(
-                email=user.email, verified=True
-            ).exists()
-            if not email_address:
-                raise serializers.ValidationError(_("E-mail is not verified."))
-
-        else:
+        if not email:
             phone = getattr(user, "phone", None)
             if phone is None or not phone.is_verified:
                 raise serializers.ValidationError(_("Phone number is not verified."))
 
         validated_data["user"] = user
-        return validated_data
-
-
-class PhoneNumberSerializer(serializers.ModelSerializer):
-    """
-    Serializer class to serialize phone number.
-    """
-
-    phone_number = PhoneNumberField()
-
-    class Meta:
-        model = PhoneNumber
-        fields = ("phone_number",)
-
-    def validate_phone_number(self, value):
-        try:
-            queryset = User.objects.get(phone__phone_number=value)
-            if queryset.phone.is_verified:
-                err_message = _("Phone number is already verified")
-                raise serializers.ValidationError(err_message)
-
-        except User.DoesNotExist:
-            raise AccountNotRegisteredException()
-
-        return value
-
-
-class VerifyPhoneNumberSerialzier(serializers.Serializer):
-    """
-    Serializer class to verify OTP.
-    """
-
-    phone_number = PhoneNumberField()
-    otp = serializers.CharField(max_length=settings.TOKEN_LENGTH)
-
-    def validate_phone_number(self, value):
-        queryset = User.objects.filter(phone__phone_number=value)
-        if not queryset.exists():
-            raise AccountNotRegisteredException()
-        return value
-
-    def validate(self, validated_data):
-        phone_number = str(validated_data.get("phone_number"))
-        otp = validated_data.get("otp")
-
-        queryset = PhoneNumber.objects.get(phone_number=phone_number)
-
-        queryset.check_verification(security_code=otp)
-
         return validated_data
 
 
@@ -268,3 +222,90 @@ class BillingAddressSerializer(CountryFieldMixin, serializers.ModelSerializer):
         representation["address_type"] = "B"
 
         return representation
+
+
+class OtpPhoneMixin:
+    def validate_phone_number(self, value):
+        from users.otp import is_valid_ghana_mobile, normalize_ghana_phone
+
+        if not is_valid_ghana_mobile(value):
+            raise serializers.ValidationError(_("Enter a valid Ghana mobile number."))
+        return normalize_ghana_phone(value)
+
+
+class OtpRequestSerializer(OtpPhoneMixin, serializers.Serializer):
+    phone_number = serializers.CharField(max_length=20)
+
+
+class OtpVerifySerializer(OtpPhoneMixin, serializers.Serializer):
+    phone_number = serializers.CharField(max_length=20)
+    code = serializers.CharField(max_length=6)
+
+
+class UserUpdateSerializer(serializers.Serializer):
+    """
+    PATCH /api/user/: names, e-mail and phone. Adding an e-mail enables
+    e-mail + password sign-in, adding a phone enables SMS-code sign-in.
+    An account must keep at least one of the two.
+    """
+
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+
+    def validate_email(self, value):
+        value = (value or "").strip().lower()
+        if value and User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError(_("A user is already registered with this e-mail address."))
+        return value
+
+    def validate_phone_number(self, value):
+        from users.otp import is_valid_ghana_mobile, normalize_ghana_phone
+
+        if not (value or "").strip():
+            return ""
+        if not is_valid_ghana_mobile(value):
+            raise serializers.ValidationError(_("Enter a valid Ghana mobile number."))
+        phone = normalize_ghana_phone(value)
+        if PhoneNumber.objects.filter(phone_number=phone).exclude(user=self.instance).exists():
+            raise serializers.ValidationError(_("A user is already registered with this phone number."))
+        return phone
+
+    def validate(self, data):
+        user = self.instance
+        current_phone = getattr(getattr(user, "phone", None), "phone_number", None)
+        email = data["email"] if "email" in data else user.email
+        phone = data["phone_number"] if "phone_number" in data else (str(current_phone) if current_phone else "")
+        if not email and not phone:
+            raise serializers.ValidationError(_("Enter an email or a phone number."))
+        for field in ("first_name", "last_name"):
+            if field in data:
+                data[field] = data[field].strip()
+                if not data[field]:
+                    raise serializers.ValidationError({field: _("This field is required.")})
+        return data
+
+    def update(self, user, data):
+        from django.db import transaction
+
+        with transaction.atomic():
+            for field in ("first_name", "last_name", "email"):
+                if field in data:
+                    setattr(user, field, data[field])
+            user.save()
+            if "phone_number" in data:
+                phone_record = PhoneNumber.objects.filter(user=user).first()
+                new_phone = data["phone_number"]
+                if not new_phone:
+                    if phone_record:
+                        phone_record.delete()
+                elif phone_record is None:
+                    PhoneNumber.objects.create(user=user, phone_number=new_phone, is_verified=False)
+                elif phone_record.phone_number != new_phone:
+                    # A new number is unverified until its first SMS-code sign-in.
+                    phone_record.phone_number = new_phone
+                    phone_record.is_verified = False
+                    phone_record.save()
+        user.refresh_from_db()
+        return user

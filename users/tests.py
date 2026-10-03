@@ -74,12 +74,6 @@ class AuthApiTests(TestCase):
         response = self.client.get("/api/user/profile/")
         self.assertEqual(response.status_code, 200)
 
-    def test_phone_security_code_expired_without_sent(self):
-        from users.models import PhoneNumber
-
-        phone = PhoneNumber(sent=None)
-        self.assertTrue(phone.is_security_code_expired())
-
     def test_access_token_lasts_several_hours(self):
         response = self.client.post(
             "/api/user/login/",

@@ -4,12 +4,12 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AddressViewSet,
     DeleteAccountAPIView,
+    OtpRequestAPIView,
+    OtpVerifyAPIView,
     ProfileAPIView,
-    SendOrResendSMSAPIView,
     UserAPIView,
     UserLoginAPIView,
     UserRegisterationAPIView,
-    VerifyPhoneNumberAPIView,
 )
 
 app_name = "users"
@@ -20,10 +20,8 @@ router.register(r"", AddressViewSet)
 urlpatterns = [
     path("register/", UserRegisterationAPIView.as_view(), name="user_register"),
     path("login/", UserLoginAPIView.as_view(), name="user_login"),
-    path("send-sms/", SendOrResendSMSAPIView.as_view(), name="send_resend_sms"),
-    path(
-        "verify-phone/", VerifyPhoneNumberAPIView.as_view(), name="verify_phone_number"
-    ),
+    path("otp/request/", OtpRequestAPIView.as_view(), name="otp_request"),
+    path("otp/verify/", OtpVerifyAPIView.as_view(), name="otp_verify"),
     path("", UserAPIView.as_view(), name="user_detail"),
     path("profile/", ProfileAPIView.as_view(), name="profile_detail"),
     path("delete-account/", DeleteAccountAPIView.as_view(), name="delete_account"),
