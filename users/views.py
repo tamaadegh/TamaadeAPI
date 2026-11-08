@@ -16,7 +16,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from dashboard.events import record_event
 from dashboard.models import SystemEvent
-from users.models import Address, PhoneNumber, Profile
+from users.models import Address, Profile
 from users.permissions import IsUserAddressOwner, IsUserProfileOwner
 from users.serializers import (
     AddressReadOnlySerializer,
@@ -25,6 +25,7 @@ from users.serializers import (
     UserRegistrationSerializer,
     OtpRequestSerializer,
     OtpVerifySerializer,
+    PasswordResetOtpConfirmSerializer,
     UserSerializer,
     UserUpdateSerializer,
 )
@@ -146,12 +147,7 @@ class DeleteAccountAPIView(GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
-        from allauth.account.models import EmailAddress
-        from allauth.socialaccount.models import SocialAccount
-        from django.db import transaction
-        from rest_framework.authtoken.models import Token
-
-        from orders.models import Order
+        from users.services import StaffAccountError, delete_user_account
 
         user = request.user
         password = request.data.get("password") or ""
@@ -159,29 +155,13 @@ class DeleteAccountAPIView(GenericAPIView):
             return Response(
                 {"detail": _("Incorrect password.")}, status=status.HTTP_400_BAD_REQUEST
             )
-        if user.is_staff or user.is_superuser:
+        try:
+            delete_user_account(user)
+        except StaffAccountError:
             return Response(
                 {"detail": _("Staff accounts must be removed by an administrator.")},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
-        with transaction.atomic():
-            Order.objects.filter(buyer=user, status=Order.PENDING).delete()
-            Address.objects.filter(user=user).delete()
-            PhoneNumber.objects.filter(user=user).delete()
-            EmailAddress.objects.filter(user=user).delete()
-            SocialAccount.objects.filter(user=user).delete()
-            Token.objects.filter(user=user).delete()
-            anon = f"deleted-{user.pk}"
-            user.username = anon
-            user.email = f"{anon}@deleted.tamaade.invalid"
-            user.first_name = "Deleted"
-            user.last_name = "User"
-            user.is_active = False
-            user.set_unusable_password()
-            user.save()
-            # After save: the post_save signal would recreate the profile.
-            Profile.objects.filter(user=user).delete()
 
         response = Response({"detail": _("Your account has been deleted.")})
         response.delete_cookie(settings.JWT_AUTH_COOKIE)
@@ -232,6 +212,42 @@ def _invalid(serializer):
     return Response({"detail": str(detail), "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
+def _not_registered():
+    return Response(
+        {
+            "detail": _("No account found with this number. Create an account first."),
+            "code": "not_registered",
+        },
+        status=status.HTTP_404_NOT_FOUND,
+    )
+
+
+def _send_otp(request, phone, purpose):
+    """Throttle, store and SMS a code for an existing account's number."""
+    from users import otp
+
+    if _user_for_phone(phone) is None:
+        return _not_registered()
+    try:
+        otp.enforce_send_limits(phone, purpose, _client_ip(request))
+        otp.create_and_send_otp(phone, purpose)
+    except otp.TooManyRequests as exc:
+        return _too_many(exc)
+    except (otp.SmsNotConfiguredError, otp.SmsDeliveryError):
+        return Response(
+            {"detail": _("We could not send the SMS right now. Please try again later.")},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return Response(
+        {
+            "detail": _("Code sent."),
+            "phone_number": phone,
+            "expires_in": settings.OTP_EXPIRE_MINUTES * 60,
+            "resend_in": settings.OTP_RESEND_COOLDOWN_SECONDS,
+        }
+    )
+
+
 def _too_many(exc):
     response = Response(
         {"detail": str(exc), "retry_after": exc.retry_after},
@@ -256,37 +272,7 @@ class OtpRequestAPIView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             return _invalid(serializer)
-        phone = serializer.validated_data["phone_number"]
-        purpose = otp.PURPOSE_LOGIN
-
-        if _user_for_phone(phone) is None:
-            return Response(
-                {
-                    "detail": _("No account found with this number. Create an account first."),
-                    "code": "not_registered",
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            otp.enforce_send_limits(phone, purpose, _client_ip(request))
-            otp.create_and_send_otp(phone, purpose)
-        except otp.TooManyRequests as exc:
-            return _too_many(exc)
-        except (otp.SmsNotConfiguredError, otp.SmsDeliveryError):
-            return Response(
-                {"detail": _("We could not send the SMS right now. Please try again later.")},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
-        return Response(
-            {
-                "detail": _("Code sent."),
-                "phone_number": phone,
-                "expires_in": settings.OTP_EXPIRE_MINUTES * 60,
-                "resend_in": settings.OTP_RESEND_COOLDOWN_SECONDS,
-            }
-        )
+        return _send_otp(request, serializer.validated_data["phone_number"], otp.PURPOSE_LOGIN)
 
 
 class OtpVerifyAPIView(GenericAPIView):
@@ -309,10 +295,7 @@ class OtpVerifyAPIView(GenericAPIView):
 
         user = _user_for_phone(phone)
         if user is None:
-            return Response(
-                {"detail": _("No account found with this number. Create an account first."), "code": "not_registered"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return _not_registered()
 
         try:
             otp.verify_otp(phone, otp.PURPOSE_LOGIN, code)
@@ -323,6 +306,75 @@ class OtpVerifyAPIView(GenericAPIView):
 
         if not user.phone.is_verified:
             # Receiving the code proves the number belongs to this user.
+            user.phone.is_verified = True
+            user.phone.save(update_fields=["is_verified", "updated_at"])
+        return _signed_in_response(request, user, status.HTTP_200_OK)
+
+
+class PasswordResetOtpRequestAPIView(GenericAPIView):
+    """
+    Forgotten password: send a 6-digit reset code by SMS to an existing account's number.
+    """
+
+    authentication_classes = []
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = OtpRequestSerializer
+
+    def post(self, request, *args, **kwargs):
+        from users import otp
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return _invalid(serializer)
+        return _send_otp(
+            request, serializer.validated_data["phone_number"], otp.PURPOSE_PASSWORD_RESET
+        )
+
+
+class PasswordResetOtpConfirmAPIView(GenericAPIView):
+    """
+    Forgotten password: check the SMS reset code, set the new password and sign the user in.
+    """
+
+    authentication_classes = []
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = PasswordResetOtpConfirmSerializer
+
+    def post(self, request, *args, **kwargs):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from users import otp
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return _invalid(serializer)
+        phone = serializer.validated_data["phone_number"]
+        code = serializer.validated_data["code"]
+        new_password = serializer.validated_data["new_password"]
+
+        user = _user_for_phone(phone)
+        if user is None:
+            return _not_registered()
+        # Validate the password first so a weak one doesn't burn the code.
+        try:
+            validate_password(new_password, user)
+        except DjangoValidationError as exc:
+            messages = list(exc.messages)
+            return Response(
+                {"detail": messages[0], "errors": {"new_password": messages}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            otp.verify_otp(phone, otp.PURPOSE_PASSWORD_RESET, code)
+        except otp.TooManyRequests as exc:
+            return _too_many(exc)
+        except otp.OtpVerificationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        if not user.phone.is_verified:
             user.phone.is_verified = True
             user.phone.save(update_fields=["is_verified", "updated_at"])
         return _signed_in_response(request, user, status.HTTP_200_OK)

@@ -1,0 +1,32 @@
+{% extends "sitecontent/_base.html" %}
+{% block title %}Delete your account – Tamaade{% endblock %}
+{% block content %}
+  <h1>Delete your Tamaade account</h1>
+  {% if deleted %}
+    <div class="ok">Your account has been deleted. You can no longer sign in with it.</div>
+  {% else %}
+    <p>You can delete your account in the Tamaade app (<strong>Profile → Delete account</strong>) or with this form.</p>
+    <h2>What is deleted</h2>
+    <ul>
+      <li>Your name, e-mail address and phone number</li>
+      <li>Your saved addresses, profile and unpaid orders</li>
+      <li>Your sign-in: the account can no longer be used</li>
+    </ul>
+    <h2>What is kept</h2>
+    <ul>
+      <li>Records of paid orders, without your name or contact details, for accounting and tax purposes.</li>
+    </ul>
+    <p class="muted">Deletion is immediate and cannot be undone. Forgot your password? Tap <strong>Forgot password?</strong> on the sign-in screen of the app to reset it by SMS first.</p>
+
+    <form method="post" class="card" autocomplete="off">
+      {% csrf_token %}
+      <label for="identifier">E-mail or phone number</label>
+      <input type="text" id="identifier" name="identifier" value="{{ identifier }}" required />
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required />
+      <label class="check"><input type="checkbox" name="confirm" value="yes" /> I understand my account will be permanently deleted.</label>
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <button type="submit">Delete my account</button>
+    </form>
+  {% endif %}
+{% endblock %}

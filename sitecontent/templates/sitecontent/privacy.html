@@ -1,0 +1,11 @@
+{% extends "sitecontent/_base.html" %}
+{% block title %}{{ policy.title }} – Tamaade{% endblock %}
+{% block content %}
+  <h1>{{ policy.title }}</h1>
+  <p class="muted">Last updated {{ policy.updated_at|date:"j F Y" }}</p>
+  {% for block in blocks %}
+    {% if block.kind == "h2" %}<h2>{{ block.text }}</h2>
+    {% elif block.kind == "ul" %}<ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>
+    {% else %}<p>{{ block.text }}</p>{% endif %}
+  {% endfor %}
+{% endblock %}

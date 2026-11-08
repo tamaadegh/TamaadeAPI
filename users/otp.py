@@ -32,6 +32,7 @@ GHANA_E164_MOBILE_RE = re.compile(r"^\+233[235]\d{8}$")
 OTP_CODE_RE = re.compile(r"^\d{6}$")
 
 PURPOSE_LOGIN = "login"
+PURPOSE_PASSWORD_RESET = "password_reset"
 
 
 class SmsNotConfiguredError(RuntimeError):
@@ -100,7 +101,7 @@ def send_sms(phone, message):
         params = {
             "clientid": client_id,
             "clientsecret": client_secret,
-            "from": settings.HUBTEL_SMS_SENDER_ID,
+            "from": (settings.HUBTEL_SMS_SENDER_ID or "Tamaade").strip(),
             "to": normalize_ghana_phone(phone).lstrip("+"),
             "content": message,
             "clientreference": reference,

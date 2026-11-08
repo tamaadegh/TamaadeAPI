@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Tamaade{% endblock %}</title>
+  <style>
+    :root { --green: #365944; --ink: #1d2420; --muted: #5b6660; --line: #dfe5e1; --bg: #f6f8f7; --error: #b3261e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.6; }
+    header { background: var(--green); color: #fff; padding: 18px 16px; }
+    header .brand { max-width: 720px; margin: 0 auto; font-weight: 800; letter-spacing: 3px; font-size: 20px; }
+    main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 26px; line-height: 1.25; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 28px 0 8px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-top: 20px; }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; }
+    input[type=text], input[type=password] { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; }
+    label.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; }
+    label.check input { margin-top: 5px; }
+    button { margin-top: 18px; width: 100%; padding: 14px; border: 0; border-radius: 999px; background: var(--error); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
+    .error { background: #fdecea; color: var(--error); border-radius: 10px; padding: 12px 14px; margin-top: 16px; }
+    .ok { background: #e8f3ec; color: var(--green); border-radius: 10px; padding: 14px; margin-top: 16px; font-weight: 600; }
+    footer { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
+    a { color: var(--green); }
+  </style>
+</head>
+<body>
+  <header><div class="brand">TAMAADE</div></header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="muted">
+    <a href="{% url 'privacy_page' %}">Privacy Policy</a> ·
+    <a href="{% url 'account_deletion_page' %}">Delete your account</a>
+  </footer>
+</body>
+</html>

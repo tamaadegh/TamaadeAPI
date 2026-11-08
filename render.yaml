@@ -27,6 +27,40 @@ services:
         value: config.settings.production
       - key: PORT
         value: "8000"
+      - key: DEBUG
+        value: "False"
+      # Hubtel callback/return URLs and media links are built from this.
+      - key: BACKEND_DOMAIN
+        value: https://tamaadeapi-7it5.onrender.com
+      - key: ALLOWED_HOSTS
+        value: tamaadeapi-7it5.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://tamaadeapi-7it5.onrender.com
+      - key: SECRET_KEY
+        sync: false
+      # Phone sign-in / password reset by SMS. "disabled" (the default) sends nothing.
+      - key: OTP_SMS_PROVIDER
+        value: hubtel
+      - key: HUBTEL_SMS_CLIENT_ID
+        sync: false
+      - key: HUBTEL_SMS_CLIENT_SECRET
+        sync: false
+      - key: HUBTEL_SMS_SENDER_ID
+        sync: false
+      # Fixed code for the one number given to Google Play reviewers (App access).
+      - key: OTP_REVIEW_PHONE
+        sync: false
+      - key: OTP_REVIEW_CODE
+        sync: false
+      # Hubtel online checkout.
+      - key: HUBTEL_API_ID
+        sync: false
+      - key: HUBTEL_API_KEY
+        sync: false
+      - key: HUBTEL_COLLECTION_ACCOUNT_NUMBER
+        sync: false
+      - key: FRONTEND_DOMAIN
+        sync: false
 
   - type: worker
     name: tamaade-worker

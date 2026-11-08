@@ -201,7 +201,7 @@ OTP_SMS_PROVIDER = config("OTP_SMS_PROVIDER", default="disabled")
 HUBTEL_SMS_CLIENT_ID = config("HUBTEL_SMS_CLIENT_ID", default="")
 HUBTEL_SMS_CLIENT_SECRET = config("HUBTEL_SMS_CLIENT_SECRET", default="")
 # Must be a sender ID approved by Hubtel, or messages are rejected.
-HUBTEL_SMS_SENDER_ID = config("HUBTEL_SMS_SENDER_ID", default="Tamaade")
+HUBTEL_SMS_SENDER_ID = config("HUBTEL_SMS_SENDER_ID", default="Tamaade").strip() or "Tamaade"
 OTP_EXPIRE_MINUTES = config("OTP_EXPIRE_MINUTES", default=10, cast=int)
 OTP_MAX_ATTEMPTS = config("OTP_MAX_ATTEMPTS", default=5, cast=int)
 OTP_RATE_LIMIT_ENABLED = config("OTP_RATE_LIMIT_ENABLED", default=True, cast=bool)

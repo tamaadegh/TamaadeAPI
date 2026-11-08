@@ -12,10 +12,14 @@ from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from sitecontent.pages import account_deletion_page, privacy_page
 from users.views import GoogleLogin
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Public pages linked from the Google Play listing.
+    path("privacy/", privacy_page, name="privacy_page"),
+    path("account/delete/", account_deletion_page, name="account_deletion_page"),
     path("api/user/", include("users.urls", namespace="users")),
     path("api/products/", include("products.urls", namespace="products")),
     path("api/user/orders/", include("orders.urls", namespace="orders")),
