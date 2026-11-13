@@ -215,10 +215,12 @@ OTP_GLOBAL_HOURLY_MAX = config("OTP_GLOBAL_HOURLY_MAX", default=600, cast=int)
 OTP_GLOBAL_DAILY_MAX = config("OTP_GLOBAL_DAILY_MAX", default=6000, cast=int)
 OTP_VERIFY_FAIL_MAX = config("OTP_VERIFY_FAIL_MAX", default=10, cast=int)
 OTP_VERIFY_LOCKOUT_SECONDS = config("OTP_VERIFY_LOCKOUT_SECONDS", default=3600, cast=int)
-# Google Play review access: ONE number that accepts a fixed code for login.
-# Unset both to revoke.
-OTP_REVIEW_PHONE = config("OTP_REVIEW_PHONE", default="")
-OTP_REVIEW_CODE = config("OTP_REVIEW_CODE", default="")
+# Shared test access for the client and Play Store / App Store reviewers: ONE
+# number that signs in with a fixed code and no SMS. On by default until Hubtel
+# SMS is live; to revoke, set OTP_REVIEW_PHONE= (empty) in the environment or
+# change these defaults back to "".
+OTP_REVIEW_PHONE = config("OTP_REVIEW_PHONE", default="+233244000000")
+OTP_REVIEW_CODE = config("OTP_REVIEW_CODE", default="123456")
 
 # Stripe
 STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="")

@@ -45,9 +45,10 @@ OTP_SMS_PROVIDER=hubtel          # disabled | log (DEBUG only) | hubtel
 HUBTEL_SMS_CLIENT_ID=your-hubtel-sms-client-id
 HUBTEL_SMS_CLIENT_SECRET=your-hubtel-sms-client-secret
 HUBTEL_SMS_SENDER_ID=Tamaade     # must be a sender ID approved by Hubtel
-# Google Play review login (one number, fixed code, login only). Leave empty to disable.
-OTP_REVIEW_PHONE=
-OTP_REVIEW_CODE=
+# Client / store-review test login (one number, fixed code, no SMS). Defaults in code:
+# 0244000000 / 123456. Set OTP_REVIEW_PHONE= (empty) to disable once Hubtel SMS is live.
+# OTP_REVIEW_PHONE=+233244000000
+# OTP_REVIEW_CODE=123456
 
 # Stripe (use test keys first, then live keys)
 STRIPE_PUBLISHABLE_KEY=pk_test_...
