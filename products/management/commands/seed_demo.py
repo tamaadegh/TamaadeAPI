@@ -2,11 +2,15 @@ from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from allauth.account.models import EmailAddress
+
+from users.models import PhoneNumber
+from users.otp import normalize_ghana_phone
 
 from products.models import (
     HeroBanner,
@@ -62,6 +66,21 @@ class Command(BaseCommand):
             email=buyer.email,
             defaults={"verified": True, "primary": True},
         )
+        # Store-review / client test login: the buyer also owns the shared
+        # OTP_REVIEW_PHONE, which signs in with the fixed OTP_REVIEW_CODE (no SMS).
+        review_phone = normalize_ghana_phone(settings.OTP_REVIEW_PHONE or "")
+        if review_phone:
+            holder = PhoneNumber.objects.filter(phone_number=review_phone).exclude(user=buyer).first()
+            if holder:
+                self.stdout.write(self.style.WARNING(
+                    f"{review_phone} already belongs to {holder.user}; not attached to the demo buyer."
+                ))
+                review_phone = ""
+            else:
+                PhoneNumber.objects.update_or_create(
+                    user=buyer,
+                    defaults={"phone_number": review_phone, "is_verified": True},
+                )
 
         sale_ends_at = timezone.now() + timedelta(days=5)
         catalog = {
@@ -432,5 +451,6 @@ class Command(BaseCommand):
                 f"New merch tiles: {merch_count}. New sections: {section_count}. "
                 f"New nav links: {nav_count}. "
                 "Login buyer@tamaade.local / BuyerPass123!"
+                + (f" or phone {review_phone} / OTP {settings.OTP_REVIEW_CODE}" if review_phone else "")
             )
         )

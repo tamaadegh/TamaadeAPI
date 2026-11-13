@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -205,6 +206,20 @@ class OtpLoginTests(TestCase):
         self.assertEqual(self._request(phone="0200000000").status_code, 200)
         self.assertEqual(self.sent, [])
         self.assertEqual(self._verify("123456", phone="0200000000").status_code, 200)
+
+    @override_settings(OTP_REVIEW_PHONE="0244440000", OTP_REVIEW_CODE="123456")
+    def test_shared_review_number_has_no_per_number_limits_and_allows_parallel_logins(self):
+        self._user(phone="+233244440000")
+        # Testers requesting back to back: past the cooldown and the 3-per-15-min
+        # per-number cap, but under the (still active) 10-per-hour IP limit.
+        for _ in range(settings.OTP_PHONE_SHORT_MAX + 3):
+            self.assertEqual(self._request(phone="0244440000").status_code, 200)
+        self.assertEqual(self.sent, [])
+        # Several sign-ins with the same fixed code all succeed.
+        for _ in range(3):
+            self.assertEqual(self._verify("123456", phone="+233244440000").status_code, 200)
+        # A wrong code is still rejected.
+        self.assertEqual(self._verify("654321", phone="0244440000").status_code, 400)
 
     def test_sms_failure_returns_503(self):
         self._user()

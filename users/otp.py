@@ -186,11 +186,16 @@ def enforce_send_limits(phone, purpose, ip):
     if not settings.OTP_RATE_LIMIT_ENABLED:
         return
     day = 86_400
-    rules = [
-        (f"otp:cooldown:{purpose}:{phone}", 1, settings.OTP_RESEND_COOLDOWN_SECONDS, "cooldown"),
-        (f"otp:phone-short:{purpose}:{phone}", settings.OTP_PHONE_SHORT_MAX, 900, "phone"),
-        (f"otp:phone-day:{phone}", settings.OTP_PHONE_DAILY_MAX, day, "phone"),
-    ]
+    rules = []
+    if review_fixed_code(phone, purpose) is None:
+        # The shared review/test number is used by many testers at once, so
+        # per-number limits would lock it within minutes; IP and global limits
+        # below still apply to it.
+        rules += [
+            (f"otp:cooldown:{purpose}:{phone}", 1, settings.OTP_RESEND_COOLDOWN_SECONDS, "cooldown"),
+            (f"otp:phone-short:{purpose}:{phone}", settings.OTP_PHONE_SHORT_MAX, 900, "phone"),
+            (f"otp:phone-day:{phone}", settings.OTP_PHONE_DAILY_MAX, day, "phone"),
+        ]
     if ip:
         rules += [
             (f"otp:ip-hour:{ip}", settings.OTP_IP_HOURLY_MAX, 3600, "ip"),
@@ -286,6 +291,12 @@ def create_and_send_otp(phone, purpose):
 
 def verify_otp(phone, purpose, code):
     """Raise OtpVerificationError/TooManyRequests, or consume the code."""
+    fixed = review_fixed_code(phone, purpose)
+    if fixed and hmac.compare_digest(str(code), fixed):
+        # Shared review/test number: the fixed code is always valid, so several
+        # testers signing in at once don't consume each other's challenge.
+        logger.info("otp.review_verified phone=%s", mask_phone(phone))
+        return
     enforce_verify_allowed(phone)
     try:
         _verify(phone, purpose, code)
