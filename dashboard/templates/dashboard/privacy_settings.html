@@ -1,43 +1,50 @@
 {% extends "dashboard/base.html" %}
-{% block title %}Privacy Page{% endblock %}
+{% block title %}Privacy page{% endblock %}
+{% block crumbs %}<span>Settings</span><i class="fa-solid fa-chevron-right" style="font-size:10px"></i><span class="current">Privacy page</span>{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h3 class="mb-0"><i class="fas fa-user-shield me-2"></i>Privacy Page</h3>
-  <span class="text-muted small">Last updated {{ policy.updated_at|date:"M d, Y H:i" }}</span>
+<div class="page-header">
+  <div>
+    <h1>Privacy page</h1>
+    <p>Shown on the website at <a href="/privacy/" target="_blank" rel="noopener">/privacy</a> and in the mobile app. Last saved {{ policy.updated_at|date:"d M Y, H:i" }}.</p>
+  </div>
+  <div class="actions">
+    <a href="/privacy/" target="_blank" rel="noopener" class="btn btn-light"><i class="fa-solid fa-arrow-up-right-from-square"></i> View live page</a>
+    <button class="btn btn-primary" type="submit" form="privacyForm"><i class="fa-solid fa-check"></i> Save</button>
+  </div>
 </div>
 
-<div class="row">
+<div class="row g-3">
   <div class="col-lg-8">
-    <div class="card">
+    <form id="privacyForm" method="post" class="card">
+      {% csrf_token %}
       <div class="card-body">
-        <form method="post">
-          {% csrf_token %}
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.title.id_for_label }}">Title</label>
-            {{ form.title }}
-            {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.content.id_for_label }}">Content</label>
-            {{ form.content }}
-            {% for error in form.content.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
-          <button class="btn btn-primary"><i class="fa fa-save me-1"></i> Save</button>
-        </form>
+        <div class="mb-3">
+          <label class="form-label required" for="{{ form.title.id_for_label }}">Title</label>
+          {{ form.title }}
+          {% for error in form.title.errors %}<div class="invalid-msg">{{ error }}</div>{% endfor %}
+        </div>
+        <div>
+          <label class="form-label required" for="{{ form.content.id_for_label }}">Content</label>
+          {{ form.content }}
+          {% for error in form.content.errors %}<div class="invalid-msg">{{ error }}</div>{% endfor %}
+        </div>
       </div>
-    </div>
+    </form>
   </div>
   <div class="col-lg-4">
     <div class="card">
-      <div class="card-body small">
-        <h6 class="fw-bold">Formatting</h6>
-        <p class="mb-2">This text is shown on the website (<code>/privacy</code>) and in the mobile app.</p>
-        <ul class="mb-0 ps-3">
-          <li>Leave a blank line between paragraphs.</li>
-          <li>Start a line with <code>## </code> for a heading.</li>
-          <li>Start a line with <code>- </code> for a bullet point.</li>
-        </ul>
+      <div class="card-header"><h2><i class="fa-solid fa-wand-magic-sparkles me-2 text-muted"></i>Formatting</h2></div>
+      <div class="card-body">
+        <dl class="dl" style="grid-template-columns: 90px 1fr">
+          <dt><code>## Title</code></dt><dd>A section heading</dd>
+          <dt><code>- item</code></dt><dd>A bullet point</dd>
+          <dt>Blank line</dt><dd>Starts a new paragraph</dd>
+        </dl>
+        <div class="banner info mt-3 mb-0">
+          <i class="fa-solid fa-circle-info mt-1"></i>
+          <div>Changes go live as soon as you save. Google Play links to this page.</div>
+        </div>
       </div>
     </div>
   </div>

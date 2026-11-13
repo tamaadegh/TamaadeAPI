@@ -1,0 +1,59 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Page not found{% endblock %} · Tamaade</title>
+  <link rel="icon" type="image/png" href="{% static 'dashboard/tamaade-icon.png' %}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --brand: #365944; --brand-600: #2d4a38; --brand-50: #eef4f0; --text: #17201b; --muted: #6b756f; --border: #cfd6d1; }
+    * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text);
+      background: radial-gradient(900px 500px at 50% -10%, var(--brand-50), transparent 70%), #f7f8f7;
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    header { padding: 20px 24px; }
+    header a { display: inline-block; background: var(--brand); border-radius: 12px; padding: 10px 14px; }
+    header img { height: 22px; display: block; }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+    .code {
+      font-size: clamp(96px, 22vw, 180px); font-weight: 800; letter-spacing: -.06em; line-height: 1;
+      background: linear-gradient(180deg, var(--brand) 0%, #7fa38c 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    h1 { font-size: 28px; letter-spacing: -.02em; margin: 12px 0 8px; }
+    p { color: var(--muted); font-size: 16px; line-height: 1.6; margin: 0 auto 28px; max-width: 440px; }
+    .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px; border-radius: 12px;
+      font-weight: 600; text-decoration: none; font-size: 15px; transition: background .15s, border-color .15s;
+    }
+    .btn-primary { background: var(--brand); color: #fff; box-shadow: 0 1px 2px rgba(36,60,45,.3); }
+    .btn-primary:hover { background: var(--brand-600); }
+    .btn-light { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-light:hover { border-color: var(--brand); }
+    footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px; }
+  </style>
+</head>
+<body>
+  <header><a href="/" aria-label="Tamaade"><img src="{% static 'dashboard/tamaade-wordmark.png' %}" alt="Tamaade"></a></header>
+  <main>
+    <div>
+      <div class="code">{% block code %}404{% endblock %}</div>
+      <h1>{% block heading %}This page doesn't exist{% endblock %}</h1>
+      <p>{% block message %}The link may be broken, or the page may have moved. Check the address, or go back to somewhere you know.{% endblock %}</p>
+      <div class="actions">
+        {% block actions %}
+        <a class="btn btn-primary" href="/dashboard/">Go to the dashboard</a>
+        <a class="btn btn-light" href="javascript:history.back()">Go back</a>
+        {% endblock %}
+      </div>
+    </div>
+  </main>
+  <footer>Tamaade · Quality + Speed</footer>
+</body>
+</html>

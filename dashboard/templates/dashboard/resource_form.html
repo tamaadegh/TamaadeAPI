@@ -1,0 +1,129 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if obj %}Edit {{ res.singular }}{% else %}New {{ res.singular }}{% endif %}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:resource_list' res.slug %}">{{ res.title }}</a>
+  <i class="fa-solid fa-chevron-right" style="font-size:10px"></i>
+  <span class="current">{% if obj %}{{ obj }}{% else %}New {{ res.singular }}{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  <div class="page-header">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{% url 'dashboard:resource_list' res.slug %}" class="btn btn-light btn-icon" title="Back to {{ res.title|lower }}"><i class="fa-solid fa-arrow-left"></i></a>
+      <div>
+        <h1>{% if obj %}{{ obj }}{% else %}New {{ res.singular }}{% endif %}</h1>
+        <p>{{ res.description }}</p>
+      </div>
+    </div>
+    <div class="actions">
+      <a href="{% url 'dashboard:resource_list' res.slug %}" class="btn btn-light">Cancel</a>
+      <button class="btn btn-primary" type="submit"><i class="fa-solid fa-check"></i> Save</button>
+    </div>
+  </div>
+
+  {% if form.errors %}
+  <div class="banner danger">
+    <i class="fa-solid fa-circle-exclamation mt-1"></i>
+    <div><strong>Some fields need your attention.</strong>{% for e in form.non_field_errors %}<br>{{ e }}{% endfor %}</div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+          {% for field in form %}
+            {% if field.field.widget.input_type == "checkbox" %}
+              <div class="d-flex align-items-start gap-3 py-2 {% if not forloop.last %}border-bottom mb-3 pb-3{% endif %}">
+                <div class="form-check form-switch m-0 fs-5">{{ field }}</div>
+                <div>
+                  <label class="fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                  {% if field.help_text %}<div class="form-text mt-0">{{ field.help_text }}</div>{% endif %}
+                </div>
+              </div>
+            {% elif field.field.widget.input_type == "file" %}
+              <div class="mb-3">
+                <label class="form-label {% if field.name == 'icon' and not obj %}required{% endif %}" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <div class="upload-box">
+                  {{ field }}
+                  {% if field.help_text %}<div class="form-text mt-2">{{ field.help_text }}</div>{% endif %}
+                </div>
+                {% for e in field.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+              </div>
+            {% else %}
+              <div class="mb-3">
+                <label class="form-label {% if field.field.required %}required{% endif %}" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for e in field.errors %}<div class="invalid-msg">{{ e }}</div>{% endfor %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        {% if res.has_image %}<div class="card-header"><h2>Preview</h2></div>{% endif %}
+        <div class="card-body text-center">
+          {% if res.has_image %}
+          <div id="preview" class="mx-auto d-flex align-items-center justify-content-center overflow-hidden"
+               style="background: var(--surface-2); border: 1px solid var(--border);
+                      {% if res.round_image %}width: 140px; height: 140px; border-radius: 50%;{% else %}width: 100%; aspect-ratio: 3/1; border-radius: 12px;{% endif %}">
+            {% if current_image %}
+              <img src="{{ current_image }}" alt="" style="width:100%; height:100%; object-fit:cover">
+            {% else %}
+              <span class="text-muted small px-3">The image appears here once you choose one.</span>
+            {% endif %}
+          </div>
+          {% else %}
+          <p class="text-muted small mb-0 text-start">Changes show on the website and the app as soon as you save.</p>
+          {% endif %}
+          {% if obj %}
+          <hr>
+          <button type="button" class="btn btn-ghost danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="fa-regular fa-trash-can"></i> Delete {{ res.singular }}</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if obj %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{% url 'dashboard:resource_delete' res.slug obj.pk %}">
+      {% csrf_token %}
+      <div class="modal-body text-center pt-4">
+        <span class="confirm-icon"><i class="fa-regular fa-trash-can"></i></span>
+        <h5 class="fw-bold mb-1">Delete this {{ res.singular }}?</h5>
+        <p class="text-muted mb-0"><strong class="text-body">{{ obj }}</strong> will be removed from the website and the app. This can't be undone.</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" type="submit">Delete {{ res.singular }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  // Live preview of a newly chosen image (or a pasted image URL).
+  (function () {
+    var box = document.getElementById('preview');
+    if (!box) return;
+    function show(src) { if (src) box.innerHTML = '<img src="' + src.replace(/"/g, '') + '" alt="" style="width:100%;height:100%;object-fit:cover">'; }
+    document.querySelectorAll('input[type=file][accept^="image"]').forEach(function (input) {
+      input.addEventListener('change', function () { if (input.files && input.files[0]) show(URL.createObjectURL(input.files[0])); });
+    });
+    var url = document.querySelector('input[name=image_url]');
+    if (url) url.addEventListener('change', function () { if (/^https?:\/\//.test(url.value)) show(url.value); });
+  })();
+</script>
+{% endblock %}

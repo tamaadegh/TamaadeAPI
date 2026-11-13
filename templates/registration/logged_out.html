@@ -1,0 +1,8 @@
+{% extends "404.html" %}
+{% block title %}Signed out{% endblock %}
+{% block code %}<svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#365944" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="background:#eef4f0;border-radius:28px;padding:20px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>{% endblock %}
+{% block heading %}You're signed out{% endblock %}
+{% block message %}Thanks for looking after the store today. Sign in again whenever you need to.{% endblock %}
+{% block actions %}
+<a class="btn btn-primary" href="{% url 'admin:login' %}?next=/dashboard/">Sign in again</a>
+{% endblock %}

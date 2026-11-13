@@ -1,52 +1,64 @@
 {% extends "dashboard/base.html" %}
 {% load dashboard_extras %}
-{% block title %}Users{% endblock %}
+{% block title %}Customers{% endblock %}
+{% block crumb_title %}Customers{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h3 class="mb-0"><i class="fas fa-users me-2"></i>Users</h3>
+<div class="page-header">
+  <div>
+    <h1>Customers</h1>
+    <p>{{ total_users }} account{{ total_users|pluralize }}{% if query %} matching “{{ query }}”{% endif %}.</p>
+  </div>
 </div>
 
 <div class="card">
-  <div class="card-body p-0">
-    <table class="table table-striped mb-0">
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Email</th>
-          <th>Total Orders</th>
-          <th>Total Spent</th>
-        </tr>
-      </thead>
+  <form method="get" class="toolbar">
+    <div class="search-field">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="search" name="q" value="{{ query }}" class="form-control" placeholder="Search by name, email or phone" />
+    </div>
+    <button class="btn btn-light">Search</button>
+    {% if query %}<a href="?" class="btn btn-ghost">Clear</a>{% endif %}
+  </form>
+
+  {% if page_obj.object_list %}
+  <div class="table-wrap">
+    <table class="table table-modern">
+      <thead><tr><th>Customer</th><th>Phone</th><th>Joined</th><th>Role</th><th class="num">Orders</th><th class="num">Total spent</th></tr></thead>
       <tbody>
         {% for user in page_obj.object_list %}
         <tr>
-          <td>{{ user.get_full_name|default:user.username }}</td>
-          <td>{{ user.email }}</td>
           <td>
-            <span class="badge bg-info">{{ user.total_orders }}</span>
+            <div class="cell-media">
+              <span class="avatar soft">{{ user.first_name|default:user.username|slice:":1" }}</span>
+              <div class="meta">
+                <span class="primary">{{ user.get_full_name|default:user.username }}</span>
+                <small>{{ user.email|default:"No email" }}</small>
+              </div>
+            </div>
           </td>
+          <td class="text-muted tabular">{{ user.phone.phone_number|default:"—" }}</td>
+          <td class="text-muted">{{ user.date_joined|date:"d M Y" }}</td>
           <td>
-            GH₵{{ spent|get_item:user.id|default:0|floatformat:2 }}
+            {% if user.is_superuser %}<span class="pill pill-info no-dot">Owner</span>
+            {% elif user.is_staff %}<span class="pill pill-info no-dot">Staff</span>
+            {% elif not user.is_active %}<span class="pill pill-neutral no-dot">Inactive</span>
+            {% else %}<span class="pill pill-success no-dot">Customer</span>{% endif %}
           </td>
+          <td class="num">{{ user.total_orders }}</td>
+          <td class="num primary">GH₵{{ spent|get_item:user.id|default:0|floatformat:"2g" }}</td>
         </tr>
-        {% empty %}
-        <tr><td colspan="4" class="text-center py-4">No users found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% with q=query|urlencode %}{% with extra="&q="|add:q %}{% include "dashboard/_pager.html" %}{% endwith %}{% endwith %}
+  {% else %}
+  <div class="empty">
+    <div class="icon"><i class="fa-solid fa-user-group"></i></div>
+    <h3>{% if query %}No customer matches “{{ query }}”{% else %}No customers yet{% endif %}</h3>
+    <p class="mb-0">{% if query %}Check the spelling or search by phone number.{% else %}People who sign up on the website or the app appear here.{% endif %}</p>
+  </div>
+  {% endif %}
 </div>
-
-<nav>
-  <ul class="pagination">
-    {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
-    {% endif %}
-    <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
-    {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
-    {% endif %}
-  </ul>
-</nav>
 {% endblock %}

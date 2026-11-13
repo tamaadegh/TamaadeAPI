@@ -1,7 +1,7 @@
 /* Tamaade Admin Login Page Styles */
 :root {
-  --primary-green: #28a745;
-  --primary-green-dark: #218838;
+  --primary-green: #365944;
+  --primary-green-dark: #2d4a38;
   --primary-green-light: #34ce57;
   --secondary-white: #ffffff;
   --accent-red: #dc3545;
@@ -64,7 +64,7 @@ body.login {
 .form-row input:focus {
   border-color: var(--primary-green);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+  box-shadow: 0 0 0 3px rgba(54, 89, 68, 0.2);
 }
 
 .form-row label {

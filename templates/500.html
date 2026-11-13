@@ -1,0 +1,9 @@
+{% extends "404.html" %}
+{% block title %}Something went wrong{% endblock %}
+{% block code %}500{% endblock %}
+{% block heading %}Something went wrong on our side{% endblock %}
+{% block message %}It's not you. The server hit an error. Please try again in a moment; if it keeps happening, tell the team what you were doing.{% endblock %}
+{% block actions %}
+<a class="btn btn-primary" href="javascript:location.reload()">Try again</a>
+<a class="btn btn-light" href="/dashboard/">Go to the dashboard</a>
+{% endblock %}

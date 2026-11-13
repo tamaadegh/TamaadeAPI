@@ -1,81 +1,70 @@
 {% extends "dashboard/base.html" %}
 {% block title %}Orders{% endblock %}
+{% block crumb_title %}Orders{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <h3 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Orders</h3>
+<div class="page-header">
+  <div>
+    <h1>Orders</h1>
+    <p>Every order placed on the website and the mobile app.</p>
+  </div>
 </div>
 
-<form method="get" class="row g-2 mb-3">
-  <div class="col-sm-6 col-md-3">
-    <select name="status" class="form-select">
-      <option value="" {% if not status %}selected{% endif %}>All statuses</option>
-      <option value="P" {% if status == 'P' %}selected{% endif %}>Pending</option>
-      <option value="C" {% if status == 'C' %}selected{% endif %}>Completed</option>
-    </select>
-  </div>
-  <div class="col-sm-2 col-md-2">
-    <button class="btn btn-outline-secondary w-100"><i class="fa fa-filter me-1"></i> Filter</button>
-  </div>
-</form>
-
 <div class="card">
-  <div class="card-body p-0">
-    <table class="table table-hover mb-0">
+  <nav class="tabs">
+    <a href="?" class="{% if not status %}active{% endif %}">All <span class="text-muted">{{ count_all }}</span></a>
+    <a href="?status=P" class="{% if status == 'P' %}active{% endif %}">Pending <span class="text-muted">{{ count_pending }}</span></a>
+    <a href="?status=C" class="{% if status == 'C' %}active{% endif %}">Completed <span class="text-muted">{{ count_completed }}</span></a>
+  </nav>
+
+  {% if page_obj.object_list %}
+  <div class="table-wrap">
+    <table class="table table-modern">
       <thead>
-        <tr>
-          <th>Order ID</th>
-          <th>Customer</th>
-          <th>Amount</th>
-          <th>Date</th>
-          <th>Status</th>
-          <th>Action</th>
-        </tr>
+        <tr><th>Order</th><th>Customer</th><th>Items</th><th>Date</th><th>Status</th><th class="num">Total</th><th style="width: 1%">Update</th></tr>
       </thead>
       <tbody>
         {% for order in page_obj.object_list %}
         <tr>
-          <td>#{{ order.id }}</td>
-          <td>{{ order.buyer.get_full_name|default:order.buyer.username }}</td>
-          <td>GH₵{{ order.total_cost|floatformat:2 }}</td>
-          <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+          <td class="primary">#{{ order.id }}</td>
           <td>
-            {% if order.status == 'P' %}
-              <span class="badge bg-warning text-dark">Pending</span>
-            {% elif order.status == 'C' %}
-              <span class="badge bg-success">Completed</span>
-            {% else %}
-              <span class="badge bg-secondary">-</span>
-            {% endif %}
+            <div class="cell-media">
+              <span class="avatar soft">{{ order.buyer.first_name|default:order.buyer.username|slice:":1" }}</span>
+              <div class="meta">
+                <span class="primary">{{ order.buyer.get_full_name|default:order.buyer.username }}</span>
+                {% if order.buyer.email %}<small>{{ order.buyer.email }}</small>{% endif %}
+              </div>
+            </div>
           </td>
+          <td class="text-muted">
+            {% with n=order.order_items.all|length %}{{ n }} item{{ n|pluralize }}{% endwith %}
+          </td>
+          <td class="text-muted">{{ order.created_at|date:"d M Y, H:i" }}</td>
+          <td>{% include "dashboard/_order_status.html" %}</td>
+          <td class="num primary">GH₵{{ order.total_cost|floatformat:"2g" }}</td>
           <td>
             <form method="post" action="{% url 'dashboard:order_update_status' order.id %}" class="d-flex gap-2 align-items-center">
               {% csrf_token %}
-              <select name="status" class="form-select form-select-sm w-auto">
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <select name="status" class="form-select form-select-sm" style="width: 130px" onchange="this.form.submit()" aria-label="Status of order {{ order.id }}">
                 <option value="P" {% if order.status == 'P' %}selected{% endif %}>Pending</option>
                 <option value="C" {% if order.status == 'C' %}selected{% endif %}>Completed</option>
               </select>
-              <button class="btn btn-sm btn-primary"><i class="fa fa-save me-1"></i>Update</button>
+              <noscript><button class="btn btn-sm btn-light">Save</button></noscript>
             </form>
           </td>
         </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-center py-4">No orders found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% with extra="&status="|add:status %}{% include "dashboard/_pager.html" %}{% endwith %}
+  {% else %}
+  <div class="empty">
+    <div class="icon"><i class="fa-solid fa-receipt"></i></div>
+    <h3>{% if status %}No {% if status == 'P' %}pending{% else %}completed{% endif %} orders{% else %}No orders yet{% endif %}</h3>
+    <p class="mb-0">{% if status %}Try another tab.{% else %}Orders from the website and the app will appear here.{% endif %}</p>
+  </div>
+  {% endif %}
 </div>
-
-<nav>
-  <ul class="pagination">
-    {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ status }}">Previous</a></li>
-    {% endif %}
-    <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
-    {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ status }}">Next</a></li>
-    {% endif %}
-  </ul>
-</nav>
 {% endblock %}

@@ -1,0 +1,1 @@
+{% if order.status == 'P' %}<span class="pill pill-warning">Pending</span>{% elif order.status == 'C' %}<span class="pill pill-success">Completed</span>{% else %}<span class="pill pill-neutral">{{ order.get_status_display|default:"—" }}</span>{% endif %}

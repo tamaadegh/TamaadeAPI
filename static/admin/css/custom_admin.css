@@ -1,8 +1,8 @@
 /* Custom Admin Styles for Tamaade - Green Theme */
 
 :root {
-    --primary-green: #28a745;
-    --primary-green-dark: #218838;
+    --primary-green: #365944;
+    --primary-green-dark: #2d4a38;
     --primary-green-light: #34ce57;
     --secondary-white: #ffffff;
     --accent-red: #dc3545;
@@ -141,7 +141,7 @@
 /* Success messages */
 .messagelist .success {
     background: #d4edda;
-    border-left: 4px solid #28a745;
+    border-left: 4px solid #365944;
 }
 
 .messagelist .warning {

@@ -1,0 +1,17 @@
+{# Pager footer for list cards. Pass `extra` with the other query params, e.g. "&status=P". #}
+{% if page_obj.paginator.num_pages > 1 or page_obj.paginator.count %}
+<div class="pager">
+  <span>
+    {% if page_obj.paginator.count %}
+      Showing <strong class="text-body">{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of {{ page_obj.paginator.count }}
+    {% endif %}
+  </span>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="btn-group">
+    <a class="btn btn-light btn-sm {% if not page_obj.has_previous %}disabled{% endif %}" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{{ extra }}{% else %}#{% endif %}" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></a>
+    <span class="btn btn-light btn-sm disabled tabular">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    <a class="btn btn-light btn-sm {% if not page_obj.has_next %}disabled{% endif %}" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{{ extra }}{% else %}#{% endif %}" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}

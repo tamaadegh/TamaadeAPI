@@ -3,133 +3,151 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Admin Dashboard{% endblock %}</title>
+  <title>{% block title %}Dashboard{% endblock %} · Tamaade</title>
   <link rel="icon" type="image/png" href="{% static 'dashboard/tamaade-icon.png' %}" />
-  <!-- Bootstrap 5 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <!-- Font Awesome -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
-  <!-- AdminLTE 3 -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
-  <style>
-    /* Green Theme Colors */
-    :root {
-      --primary-green: #28a745;
-      --primary-green-dark: #218838;
-      --primary-green-light: #34ce57;
-      --secondary-white: #ffffff;
-      --accent-red: #dc3545;
-      --accent-red-dark: #c82333;
-      --text-dark: #2c3e50;
-      --bg-light: #f8f9fa;
-    }
-    
-    /* Override AdminLTE colors */
-    .navbar-light { background: var(--secondary-white) !important; border-bottom: 2px solid var(--primary-green); }
-    .main-sidebar { background: var(--text-dark) !important; }
-    .sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active { background-color: var(--primary-green) !important; }
-    .brand-link { background: var(--primary-green) !important; color: white !important; border-bottom: 1px solid var(--primary-green-dark); }
-    
-    .btn-primary { background: var(--primary-green) !important; border-color: var(--primary-green) !important; }
-    .btn-primary:hover { background: var(--primary-green-dark) !important; border-color: var(--primary-green-dark) !important; }
-    .btn-danger { background: var(--accent-red) !important; border-color: var(--accent-red) !important; }
-    .btn-danger:hover { background: var(--accent-red-dark) !important; }
-    
-    .badge.bg-success, .badge.bg-primary { background: var(--primary-green) !important; }
-    .badge.bg-danger { background: var(--accent-red) !important; }
-    
-    .small-box.bg-success { background: var(--primary-green) !important; }
-    .small-box.bg-danger { background: var(--accent-red) !important; }
-    
-    .logo-fallback { object-fit: contain !important; background: #365944; }
-    .table-avatar img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
-    .content-wrapper { min-height: 100vh; background: var(--bg-light); }
-    .media-top { position: relative; }
-    .play-overlay { position: absolute; right: .5rem; bottom: .5rem; background: rgba(0,0,0,.6); color: #fff; border-radius: 999px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
-    .img-fit-cover { object-fit: cover; width: 100%; }
-    .img-fit-contain { object-fit: contain; width: 100%; }
-    .ratio-16x9 { aspect-ratio: 16/9; }
-    
-    .card { border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .modal-header { background: var(--primary-green); color: white; }
-    .modal-header .btn-close { filter: brightness(0) invert(1); }
-  </style>
+  <link href="{% static 'dashboard/dashboard.css' %}" rel="stylesheet" />
   {% block head_extra %}{% endblock %}
 </head>
-<body class="hold-transition sidebar-mini">
-<div class="wrapper">
-  <!-- Navbar -->
-  <nav class="main-header navbar navbar-expand navbar-white navbar-light">
-    <ul class="navbar-nav">
-      <li class="nav-item">
-        <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
-      </li>
-      <li class="nav-item d-none d-sm-inline-block">
-        <a href="{% url 'dashboard:index' %}" class="nav-link">Dashboard</a>
-      </li>
-    </ul>
-    <ul class="navbar-nav ml-auto">
-      <li class="nav-item">
-        <a class="nav-link" href="/admin/"><i class="fa fa-user-shield me-1"></i> Admin</a>
-      </li>
-    </ul>
-  </nav>
-  <!-- /.navbar -->
-
-  <!-- Main Sidebar Container -->
-  <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <a href="{% url 'dashboard:index' %}" class="brand-link text-center" style="background:#365944 !important;">
-      <img src="{% static 'dashboard/tamaade-wordmark.png' %}" alt="Tamaade" style="height:40px; width:auto;" />
+<body>
+{% with url_name=request.resolver_match.url_name %}
+<div class="app" id="app">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a href="{% url 'dashboard:index' %}" class="sidebar-brand">
+      <img src="{% static 'dashboard/tamaade-wordmark.png' %}" alt="Tamaade" />
+      <span class="tag">Staff</span>
     </a>
-    <div class="sidebar">
-      <nav class="mt-2">
-        <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-          <li class="nav-item"><a href="{% url 'dashboard:index' %}" class="nav-link"><i class="nav-icon fas fa-chart-line"></i><p>Dashboard</p></a></li>
-          <li class="nav-item"><a href="{% url 'dashboard:products_list' %}" class="nav-link"><i class="nav-icon fas fa-box"></i><p>Products</p></a></li>
-          <li class="nav-item"><a href="{% url 'dashboard:orders_list' %}" class="nav-link"><i class="nav-icon fas fa-shopping-cart"></i><p>Orders</p></a></li>
-          <li class="nav-item"><a href="{% url 'dashboard:users_list' %}" class="nav-link"><i class="nav-icon fas fa-users"></i><p>Users</p></a></li>
-          <li class="nav-item"><a href="{% url 'dashboard:insights' %}" class="nav-link"><i class="nav-icon fas fa-heart-pulse"></i><p>Insights &amp; Health</p></a></li>
-          <li class="nav-header text-uppercase small">Settings</li>
-          <li class="nav-item"><a href="{% url 'dashboard:privacy_settings' %}" class="nav-link{% if request.resolver_match.url_name == 'privacy_settings' %} active{% endif %}"><i class="nav-icon fas fa-user-shield"></i><p>Privacy Page</p></a></li>
-          <li class="nav-item"><a href="{% url 'dashboard:sound_settings' %}" class="nav-link{% if request.resolver_match.url_name == 'sound_settings' %} active{% endif %}"><i class="nav-icon fas fa-music"></i><p>Sound</p></a></li>
-        </ul>
-      </nav>
+    <nav class="sidebar-nav">
+      <a href="{% url 'dashboard:index' %}" class="nav-link-item {% if url_name == 'index' %}active{% endif %}">
+        <i class="fa-solid fa-house"></i>Home
+      </a>
+      <a href="{% url 'dashboard:orders_list' %}" class="nav-link-item {% if url_name == 'orders_list' %}active{% endif %}">
+        <i class="fa-solid fa-receipt"></i>Orders
+      </a>
+      <a href="{% url 'dashboard:products_list' %}" class="nav-link-item {% if url_name == 'products_list' or url_name == 'product_detail' %}active{% endif %}">
+        <i class="fa-solid fa-tag"></i>Products
+      </a>
+      <a href="{% url 'dashboard:users_list' %}" class="nav-link-item {% if url_name == 'users_list' %}active{% endif %}">
+        <i class="fa-solid fa-user-group"></i>Customers
+      </a>
+      <a href="{% url 'dashboard:insights' %}" class="nav-link-item {% if url_name == 'insights' %}active{% endif %}">
+        <i class="fa-solid fa-heart-pulse"></i>Insights &amp; Health
+      </a>
+
+      <div class="nav-section">Storefront</div>
+      {% with slug=request.resolver_match.kwargs.slug %}
+      <a href="{% url 'dashboard:resource_list' 'categories' %}" class="nav-link-item {% if slug == 'categories' %}active{% endif %}">
+        <i class="fa-solid fa-shapes"></i>Categories
+      </a>
+      <a href="{% url 'dashboard:resource_list' 'banners' %}" class="nav-link-item {% if slug == 'banners' %}active{% endif %}">
+        <i class="fa-regular fa-images"></i>Banners
+      </a>
+      <a href="{% url 'dashboard:resource_list' 'tiles' %}" class="nav-link-item {% if slug == 'tiles' %}active{% endif %}">
+        <i class="fa-regular fa-circle-dot"></i>Home tiles
+      </a>
+      <a href="{% url 'dashboard:resource_list' 'sections' %}" class="nav-link-item {% if slug == 'sections' %}active{% endif %}">
+        <i class="fa-solid fa-table-list"></i>Home sections
+      </a>
+      <a href="{% url 'dashboard:resource_list' 'promos' %}" class="nav-link-item {% if slug == 'promos' %}active{% endif %}">
+        <i class="fa-solid fa-bullhorn"></i>Promo strips
+      </a>
+      <a href="{% url 'dashboard:resource_list' 'price-tiers' %}" class="nav-link-item {% if slug == 'price-tiers' %}active{% endif %}">
+        <i class="fa-solid fa-coins"></i>Shop by budget
+      </a>
+      <a href="{% url 'dashboard:resource_list' 'nav-links' %}" class="nav-link-item {% if slug == 'nav-links' %}active{% endif %}">
+        <i class="fa-solid fa-bars"></i>Website menu
+      </a>
+      {% endwith %}
+
+      <div class="nav-section">Settings</div>
+      <a href="{% url 'dashboard:privacy_settings' %}" class="nav-link-item {% if url_name == 'privacy_settings' %}active{% endif %}">
+        <i class="fa-solid fa-shield-halved"></i>Privacy page
+      </a>
+      <a href="{% url 'dashboard:sound_settings' %}" class="nav-link-item {% if url_name == 'sound_settings' %}active{% endif %}">
+        <i class="fa-solid fa-music"></i>Background music
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/admin/" class="nav-link-item"><i class="fa-solid fa-sliders"></i>Advanced admin</a>
     </div>
   </aside>
+  <div class="backdrop" data-nav-close></div>
 
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Django Messages -->
-    {% if messages %}
-    <section class="content pt-3">
-      <div class="container-fluid">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-          <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} me-2"></i>
-          {{ message }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" type="button" data-nav-toggle aria-label="Open menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="crumbs">
+        {% block crumbs %}<span class="current">{% block crumb_title %}Home{% endblock %}</span>{% endblock %}
+      </div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <button class="user-chip" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="avatar">{{ request.user.first_name|default:request.user.username|slice:":1" }}</span>
+            <span class="name fw-semibold">{{ request.user.get_full_name|default:request.user.username }}</span>
+            <i class="fa-solid fa-chevron-down small text-muted"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-2" style="border-radius:12px; min-width: 220px;">
+            <li class="px-3 py-2">
+              <div class="fw-semibold">{{ request.user.get_full_name|default:request.user.username }}</div>
+              <div class="small text-muted text-truncate">{{ request.user.email|default:"Staff account" }}</div>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item rounded-2" href="{% url 'dashboard:password_change' %}"><i class="fa-solid fa-key me-2 text-muted"></i>Change password</a></li>
+            <li>
+              <form method="post" action="{% url 'admin:logout' %}">
+                {% csrf_token %}
+                <button class="dropdown-item rounded-2 text-danger" type="submit"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Sign out</button>
+              </form>
+            </li>
+          </ul>
         </div>
-        {% endfor %}
       </div>
-    </section>
+    </header>
+
+    {% if messages %}
+    <div class="toast-stack" aria-live="polite">
+      {% for message in messages %}
+      {% with tag=message.tags|default:"info" %}
+      <div class="toast-msg {% if 'error' in tag or 'danger' in tag %}error{% elif 'warning' in tag %}warning{% elif 'success' in tag %}success{% else %}info{% endif %}" role="status">
+        <i class="lead-icon fa-solid {% if 'success' in tag %}fa-circle-check{% elif 'error' in tag or 'danger' in tag %}fa-circle-exclamation{% elif 'warning' in tag %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+        <div>{{ message }}</div>
+        <button class="close" type="button" aria-label="Dismiss" data-toast-close><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
     {% endif %}
-    <section class="content pt-3">
-      <div class="container-fluid">
-        {% block content %}{% endblock %}
-      </div>
-    </section>
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
   </div>
-
-  <footer class="main-footer small text-center">
-    <strong>&copy; <span id="year"></span> Tamaade Dashboard</strong> All rights reserved.
-  </footer>
 </div>
+{% endwith %}
 
-<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    var app = document.getElementById('app');
+    document.querySelectorAll('[data-nav-toggle]').forEach(function (b) {
+      b.addEventListener('click', function () { app.classList.toggle('nav-open'); });
+    });
+    document.querySelectorAll('[data-nav-close]').forEach(function (b) {
+      b.addEventListener('click', function () { app.classList.remove('nav-open'); });
+    });
+    document.querySelectorAll('.toast-msg').forEach(function (t) {
+      var close = function () { t.style.transition = 'opacity .2s'; t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 200); };
+      t.querySelector('[data-toast-close]').addEventListener('click', close);
+      if (!t.classList.contains('error')) setTimeout(close, 5000);
+    });
+  })();
+</script>
 {% block body_extra %}{% endblock %}
 </body>
 </html>

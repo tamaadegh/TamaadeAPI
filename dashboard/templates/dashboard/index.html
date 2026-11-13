@@ -1,124 +1,155 @@
 {% extends "dashboard/base.html" %}
-{% block title %}Dashboard Overview{% endblock %}
+{% block title %}Home{% endblock %}
+{% block crumb_title %}Home{% endblock %}
 
 {% block content %}
-<div class="row">
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-info">
-      <div class="inner">
-        <h3>GH₵{{ total_sales|floatformat:2 }}</h3>
-        <p>Total Sales</p>
-      </div>
-      <div class="icon"><i class="fas fa-coins"></i></div>
-    </div>
+<div class="page-header">
+  <div>
+    <h1>Hello{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %} 👋</h1>
+    <p>Here's how Tamaade is doing today.</p>
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-success">
-      <div class="inner">
-        <h3>{{ total_customers }}</h3>
-        <p>Total Customers</p>
-      </div>
-      <div class="icon"><i class="fas fa-users"></i></div>
-    </div>
-  </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-warning">
-      <div class="inner text-dark">
-        <h3>{{ total_products }}</h3>
-        <p>Products</p>
-      </div>
-      <div class="icon"><i class="fas fa-box"></i></div>
-    </div>
-  </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-danger">
-      <div class="inner">
-        <h3>{{ total_orders }}</h3>
-        <p>Total Orders</p>
-      </div>
-      <div class="icon"><i class="fas fa-shopping-cart"></i></div>
-    </div>
+  <div class="actions">
+    <a href="{% url 'dashboard:orders_list' %}?status=P" class="btn btn-light">
+      <i class="fa-solid fa-hourglass-half"></i> Pending orders
+      {% if pending_orders %}<span class="pill pill-warning no-dot">{{ pending_orders }}</span>{% endif %}
+    </a>
+    <a href="{% url 'dashboard:products_list' %}?new=1" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add product</a>
   </div>
 </div>
 
-<div class="row">
-  <div class="col-md-8">
-    <div class="card">
-      <div class="card-header"><h3 class="card-title"><i class="fas fa-chart-line me-2"></i>Sales (Last 30 days)</h3></div>
-      <div class="card-body"><canvas id="salesChart" height="120"></canvas></div>
+<div class="kpi-grid">
+  <div class="card kpi">
+    <div class="top"><span class="label">Total sales</span><span class="chip-icon"><i class="fa-solid fa-coins"></i></span></div>
+    <div class="value">GH₵{{ total_sales|floatformat:"2g" }}</div>
+    <div class="hint">GH₵{{ sales_30d|floatformat:"2g" }} in the last 30 days</div>
+  </div>
+  <div class="card kpi">
+    <div class="top"><span class="label">Orders</span><span class="chip-icon amber"><i class="fa-solid fa-receipt"></i></span></div>
+    <div class="value">{{ total_orders }}</div>
+    <div class="hint">{% if pending_orders %}<a href="{% url 'dashboard:orders_list' %}?status=P">{{ pending_orders }} waiting for you</a>{% else %}Nothing pending{% endif %}</div>
+  </div>
+  <div class="card kpi">
+    <div class="top"><span class="label">Customers</span><span class="chip-icon blue"><i class="fa-solid fa-user-group"></i></span></div>
+    <div class="value">{{ total_customers }}</div>
+    <div class="hint">+{{ new_customers_30d }} in the last 30 days</div>
+  </div>
+  <div class="card kpi">
+    <div class="top"><span class="label">Products</span><span class="chip-icon rose"><i class="fa-solid fa-tag"></i></span></div>
+    <div class="value">{{ total_products }}</div>
+    <div class="hint">{% if low_stock %}<span class="text-danger">{{ low_stock }} low on stock (≤ 3)</span>{% else %}Stock looks healthy{% endif %}</div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-8">
+    <div class="card h-100">
+      <div class="card-header">
+        <div><h2>Sales</h2><div class="sub">Last 30 days, in GH₵</div></div>
+        <span class="pill pill-success no-dot tabular">GH₵{{ sales_30d|floatformat:"0g" }}</span>
+      </div>
+      <div class="card-body"><div style="height: 280px;"><canvas id="salesChart"></canvas></div></div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header"><h3 class="card-title"><i class="fas fa-trophy me-2"></i>Top Products</h3></div>
-      <div class="card-body"><canvas id="topProductsChart" height="120"></canvas></div>
+  <div class="col-xl-4">
+    <div class="card h-100">
+      <div class="card-header"><div><h2>Top products</h2><div class="sub">By units sold</div></div></div>
+      <div class="card-body">
+        {% if top_products %}
+        <div class="bar-list">
+          {% for p in top_products %}
+          <div class="bar-row">
+            <div class="top"><span class="name" title="{{ p.name }}">{{ p.name }}</span><span class="tabular text-muted">{{ p.qty }}</span></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ p.pct }}%"></div></div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty py-4">
+          <div class="icon"><i class="fa-solid fa-trophy"></i></div>
+          <h3>No sales yet</h3>
+          <p class="mb-0">Best sellers show up here after the first orders.</p>
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h3 class="card-title"><i class="fas fa-clock me-2"></i>Recent Orders</h3></div>
-  <div class="card-body p-0">
-    <table class="table table-striped mb-0">
-      <thead>
-        <tr>
-          <th>Order ID</th>
-          <th>Customer</th>
-          <th>Total</th>
-          <th>Date</th>
-          <th>Status</th>
-        </tr>
-      </thead>
+  <div class="card-header">
+    <div><h2>Recent orders</h2><div class="sub">The latest {{ recent_orders|length }} orders</div></div>
+    <a href="{% url 'dashboard:orders_list' %}" class="btn btn-light btn-sm">View all <i class="fa-solid fa-arrow-right"></i></a>
+  </div>
+  {% if recent_orders %}
+  <div class="table-wrap">
+    <table class="table table-modern">
+      <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Status</th><th class="num">Total</th></tr></thead>
       <tbody>
         {% for order in recent_orders %}
         <tr>
-          <td>#{{ order.id }}</td>
-          <td>{{ order.buyer.get_full_name|default:order.buyer.username }}</td>
-          <td>GH₵{{ order.total_cost|floatformat:2 }}</td>
-          <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+          <td class="primary">#{{ order.id }}</td>
           <td>
-            {% if order.status == 'P' %}
-              <span class="badge bg-warning text-dark">Pending</span>
-            {% elif order.status == 'C' %}
-              <span class="badge bg-success">Completed</span>
-            {% else %}
-              <span class="badge bg-secondary">-</span>
-            {% endif %}
+            <div class="cell-media">
+              <span class="avatar soft">{{ order.buyer.first_name|default:order.buyer.username|slice:":1" }}</span>
+              <span>{{ order.buyer.get_full_name|default:order.buyer.username }}</span>
+            </div>
           </td>
+          <td class="text-muted">{{ order.created_at|date:"d M Y, H:i" }}</td>
+          <td>{% include "dashboard/_order_status.html" %}</td>
+          <td class="num primary">GH₵{{ order.total_cost|floatformat:"2g" }}</td>
         </tr>
-        {% empty %}
-        <tr><td colspan="5" class="text-center py-4">No recent orders.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% else %}
+  <div class="empty">
+    <div class="icon"><i class="fa-solid fa-receipt"></i></div>
+    <h3>No orders yet</h3>
+    <p class="mb-0">New orders from the website and the app will appear here.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
 {% block body_extra %}
-<script>
-  window.addEventListener('DOMContentLoaded', function () {
-    // Embed JSON safely and parse
-    // Sales trend
-    const salesData = JSON.parse(document.getElementById('sales-data').textContent);
-    const salesLabels = Object.keys(salesData);
-    const salesValues = Object.values(salesData);
-    new Chart(document.getElementById('salesChart'), {
-      type: 'line',
-      data: { labels: salesLabels, datasets: [{ label: 'Sales', data: salesValues, borderColor: '#28a745', backgroundColor: 'rgba(40,167,69,0.2)', fill: true, tension: .3 }] },
-      options: { scales: { y: { beginAtZero: true } } }
-    });
-
-    // Top products
-    const topProducts = JSON.parse(document.getElementById('top-products-data').textContent);
-    new Chart(document.getElementById('topProductsChart'), {
-      type: 'bar',
-      data: { labels: Object.keys(topProducts), datasets: [{ label: 'Qty', data: Object.values(topProducts), backgroundColor: '#28a745' }] },
-      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
-    });
-  });
-</script>
-{# Safely include JSON payloads #}
 {{ sales_trend|json_script:"sales-data" }}
-{{ top_products|json_script:"top-products-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    var data = JSON.parse(document.getElementById('sales-data').textContent);
+    var ctx = document.getElementById('salesChart').getContext('2d');
+    var gradient = ctx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, 'rgba(54, 89, 68, 0.22)');
+    gradient.addColorStop(1, 'rgba(54, 89, 68, 0)');
+    Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+    Chart.defaults.color = '#6b756f';
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Object.keys(data),
+        datasets: [{
+          label: 'Sales', data: Object.values(data), borderColor: '#365944', backgroundColor: gradient,
+          fill: true, tension: .35, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#365944'
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#17201b', padding: 10, cornerRadius: 8, displayColors: false,
+            callbacks: { label: function (c) { return 'GH₵' + Number(c.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2 }); } }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+          y: { beginAtZero: true, grid: { color: '#eef0ee' }, border: { display: false },
+               ticks: { callback: function (v) { return 'GH₵' + Number(v).toLocaleString(); } } }
+        }
+      }
+    });
+  })();
+</script>
 {% endblock %}

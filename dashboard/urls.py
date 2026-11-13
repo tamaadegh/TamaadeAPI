@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import account, storefront, views
 
 app_name = "dashboard"
 
@@ -19,4 +19,10 @@ urlpatterns = [
     path("settings/sound/<int:sound_id>/update/", views.sound_update, name="sound_update"),
     path("settings/sound/<int:sound_id>/activate/", views.sound_activate, name="sound_activate"),
     path("settings/sound/<int:sound_id>/delete/", views.sound_delete, name="sound_delete"),
+    path("account/password/", account.password_change, name="password_change"),
+    # Storefront content: categories, banners, tiles (see storefront.RESOURCES).
+    path("store/<slug:slug>/", storefront.resource_list, name="resource_list"),
+    path("store/<slug:slug>/new/", storefront.resource_edit, name="resource_create"),
+    path("store/<slug:slug>/<int:pk>/", storefront.resource_edit, name="resource_edit"),
+    path("store/<slug:slug>/<int:pk>/delete/", storefront.resource_delete, name="resource_delete"),
 ]

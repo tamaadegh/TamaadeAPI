@@ -1,141 +1,159 @@
 {% extends "dashboard/base.html" %}
-{% load static %}
-{% load imagekit_tags %}
-{% block title %}Product • {{ product.name }}{% endblock %}
+{% load static imagekit_tags %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block crumbs %}
+  <a href="{% url 'dashboard:products_list' %}">Products</a>
+  <i class="fa-solid fa-chevron-right" style="font-size:10px"></i>
+  <span class="current text-truncate" style="max-width: 320px">{{ product.name }}</span>
+{% endblock %}
 
 {% block content %}
-<nav aria-label="breadcrumb" class="mb-3">
-  <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Dashboard</a></li>
-    <li class="breadcrumb-item"><a href="{% url 'dashboard:products_list' %}">Products</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
-  </ol>
-</nav>
+<div class="page-header">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{% url 'dashboard:products_list' %}" class="btn btn-light btn-icon" title="Back to products"><i class="fa-solid fa-arrow-left"></i></a>
+    <div>
+      <h1>{{ product.name }}</h1>
+      <p>
+        {% if product.quantity <= 0 %}<span class="pill pill-danger">Out of stock</span>
+        {% elif product.quantity <= 3 %}<span class="pill pill-warning">{{ product.quantity }} left</span>
+        {% else %}<span class="pill pill-success">{{ product.quantity }} in stock</span>{% endif %}
+        <span class="ms-2">{{ product.category.name }}</span>
+      </p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-light text-danger" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="fa-regular fa-trash-can"></i> Delete</button>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal"><i class="fa-solid fa-pen"></i> Edit product</button>
+  </div>
+</div>
 
-<div class="card shadow-sm">
-  <div class="row g-0">
-    <div class="col-lg-7 border-end">
-      <div class="p-3">
-        {% if product.images.exists %}
-          {% with main_img=product.images.first %}
-            {% imagekit_url main_img.url width=1000 height=420 quality=80 as image_src %}
-            <img src="{{ image_src }}" alt="{{ product.name }}" class="img-fluid img-fit-contain" style="max-height: 420px;">
-          {% endwith %}
-        {% elif product.image %}
-          <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid img-fit-contain" style="max-height: 420px;">
-        {% else %}
-          <img src="{% static 'dashboard/tamaade-logo.png' %}" alt="Tamaade" class="img-fluid img-fit-contain logo-fallback" style="max-height: 420px;">
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><h2>Media</h2><span class="sub">{{ product.images.count }} photo{{ product.images.count|pluralize }}</span></div>
+      <div class="card-body">
+        {% with main_img=product.images.first %}
+          {% if main_img and main_img.url %}
+            {% imagekit_url main_img.url width=1200 quality=80 as image_src %}
+            <img id="mainImage" src="{{ image_src }}" alt="{{ product.name }}" class="gallery-main">
+          {% elif product.image %}
+            <img id="mainImage" src="{{ product.image.url }}" alt="{{ product.name }}" class="gallery-main">
+          {% else %}
+            <div class="empty" style="background: var(--surface-2); border-radius: 12px;">
+              <div class="icon"><i class="fa-regular fa-image"></i></div>
+              <h3>No photos yet</h3>
+              <p class="mb-2">Products with photos sell much better.</p>
+              <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#editModal"><i class="fa-solid fa-upload"></i> Add photos</button>
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% if product.images.count > 1 %}
+        <div class="gallery-thumbs">
+          {% for img in product.images.all %}
+            {% imagekit_url img.url width=1200 quality=80 as full_src %}
+            {% imagekit_url img.url width=160 height=160 quality=60 as thumb_src %}
+            <img src="{{ thumb_src }}" data-full="{{ full_src }}" alt="" class="{% if forloop.first %}active{% endif %}" loading="lazy">
+          {% endfor %}
+        </div>
         {% endif %}
-          {% if product.images.count > 1 %}
-          <div class="mt-3 d-flex gap-2 overflow-auto">
-            {% for img in product.images.all %}
-              {% imagekit_url img.url width=150 height=150 quality=60 as thumb_src %}
-              <img src="{{ thumb_src }}" class="img-thumbnail" style="width: 150px; height: 150px; object-fit: contain;" />
-            {% endfor %}
-          </div>
-        {% endif %}
-      </div>
-      {% if product.videos.exists or product.video %}
-      <div class="px-3 pb-3">
-        <div class="ratio ratio-16x9">
+
+        {% if product.videos.exists or product.video %}
+        <div class="row g-2 mt-2">
           {% if product.videos.exists %}
             {% for v in product.videos.all %}
-              <video controls preload="metadata" class="w-100 h-100 mb-2">
-                <source src="{{ v.url }}" type="video/mp4">
-                Your browser does not support the video tag.
-              </video>
+            <div class="col-md-6"><video controls preload="metadata" class="w-100 rounded-3 border"><source src="{{ v.url }}" type="video/mp4"></video></div>
             {% endfor %}
           {% else %}
-            <video controls preload="metadata" class="w-100 h-100">
-              <source src="{{ product.video.url }}" type="video/mp4">
-              <source src="{{ product.video.url }}" type="video/webm">
-              <source src="{{ product.video.url }}" type="video/ogg">
-              Your browser does not support the video tag.
-            </video>
+            <div class="col-md-6"><video controls preload="metadata" class="w-100 rounded-3 border"><source src="{{ product.video.url }}"></video></div>
           {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><h2>Pricing</h2></div>
+      <div class="card-body">
+        <div class="kpi p-0">
+          <div class="value">GH₵{{ product.price|floatformat:"2g" }}</div>
+          {% if product.compare_at_price %}<div class="hint">Was <s>GH₵{{ product.compare_at_price|floatformat:"2g" }}</s>{% if product.discount_percent %} · {{ product.discount_percent }}% off{% endif %}</div>{% endif %}
         </div>
       </div>
-      {% endif %}
     </div>
-    <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><h2>Details</h2></div>
       <div class="card-body">
-        <h3 class="card-title">{{ product.name }}</h3>
-        <p class="text-muted mb-2">Category: {{ product.category.name }}</p>
-        <div class="mb-3">
-          <span class="badge bg-info fs-6">GH₵{{ product.price }}</span>
-          {% if product.quantity > 0 %}
-            <span class="badge bg-success fs-6">In Stock: {{ product.quantity }}</span>
-          {% else %}
-            <span class="badge bg-danger fs-6">Out of Stock</span>
-          {% endif %}
-        </div>
-        <p class="mb-0">{{ product.desc }}</p>
-        <hr>
-        <div class="d-flex gap-2">
-          <a class="btn btn-outline-secondary" href="{% url 'dashboard:products_list' %}"><i class="fa fa-arrow-left me-1"></i> Back</a>
-          <a class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal-{{ product.id }}"><i class="fa fa-pen me-1"></i> Edit</a>
-        </div>
+        <dl class="dl">
+          <dt>Category</dt><dd>{{ product.category.name }}</dd>
+          <dt>Stock</dt><dd class="tabular">{{ product.quantity }}</dd>
+          {% if product.brand %}<dt>Brand</dt><dd>{{ product.brand }}</dd>{% endif %}
+          {% if product.promo_label %}<dt>Promo label</dt><dd><span class="pill pill-info no-dot">{{ product.promo_label }}</span></dd>{% endif %}
+          <dt>Seller</dt><dd>{{ product.seller.get_full_name|default:product.seller.username }}</dd>
+          <dt>Added</dt><dd>{{ product.created_at|date:"d M Y, H:i" }}</dd>
+          <dt>Last change</dt><dd>{{ product.updated_at|date:"d M Y, H:i" }}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>Description</h2></div>
+      <div class="card-body">
+        {% if product.desc %}<p class="mb-0" style="white-space: pre-line">{{ product.desc }}</p>{% else %}<p class="text-muted mb-0">No description yet.</p>{% endif %}
       </div>
     </div>
   </div>
 </div>
 
-<!-- Reuse edit modal markup for detail page -->
-<div class="modal fade" id="editModal-{{ product.id }}" tabindex="-1">
+<!-- Edit -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editTitle">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
+    <form class="modal-content" method="post" enctype="multipart/form-data" action="{% url 'dashboard:product_update' product.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{% url 'dashboard:product_detail' product.id %}">
       <div class="modal-header">
-        <h5 class="modal-title">Edit Product</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" id="editTitle">Edit product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form method="post" enctype="multipart/form-data" action="{% url 'dashboard:product_update' product.id %}">
-        <div class="modal-body">
-          {% csrf_token %}
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Name</label>
-              <input type="text" name="name" value="{{ product.name }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Category</label>
-              <select name="category" class="form-select" required>
-                <option value="{{ product.category_id }}" selected>{{ product.category.name }}</option>
-              </select>
-            </div>
-            <div class="col-12">
-              <label class="form-label">Description</label>
-              <textarea name="desc" rows="3" class="form-control">{{ product.desc }}</textarea>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Image (single)</label>
-              <input type="file" name="image" accept="image/*" class="form-control">
-              {% if product.image %}<small class="text-muted">Current: {{ product.image.name }}</small>{% endif %}
-              <label class="form-label mt-2">Or upload multiple images</label>
-              <input type="file" name="image_files" accept="image/*" multiple class="form-control">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Video (single)</label>
-              <input type="file" name="video" accept="video/mp4,video/webm,video/ogg" class="form-control">
-              {% if product.video %}<small class="text-muted">Current: {{ product.video.name }}</small>{% endif %}
-              <label class="form-label mt-2">Or upload multiple videos</label>
-              <input type="file" name="video_files" accept="video/mp4,video/webm,video/ogg" multiple class="form-control">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Price</label>
-              <input type="number" step="0.01" name="price" value="{{ product.price }}" class="form-control" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Quantity</label>
-              <input type="number" name="quantity" value="{{ product.quantity }}" class="form-control" required>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary" type="submit">Save Changes</button>
-        </div>
-      </form>
-    </div>
+      <div class="modal-body">
+        {% include "dashboard/_product_form.html" with prefix="edit-" %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-check"></i> Save changes</button>
+      </div>
+    </form>
   </div>
 </div>
+
+<!-- Delete -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{% url 'dashboard:product_delete' product.id %}">
+      {% csrf_token %}
+      <div class="modal-body text-center pt-4">
+        <span class="confirm-icon"><i class="fa-regular fa-trash-can"></i></span>
+        <h5 class="fw-bold mb-1">Delete this product?</h5>
+        <p class="text-muted mb-0"><strong class="text-body">{{ product.name }}</strong> will be removed from the website and the app. This can't be undone.</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" type="submit">Delete product</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  document.querySelectorAll('.gallery-thumbs img').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.getElementById('mainImage').src = t.getAttribute('data-full');
+      document.querySelectorAll('.gallery-thumbs img').forEach(function (o) { o.classList.remove('active'); });
+      t.classList.add('active');
+    });
+  });
+  {% if request.GET.edit %}new bootstrap.Modal(document.getElementById('editModal')).show();{% endif %}
+</script>
 {% endblock %}

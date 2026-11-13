@@ -23,6 +23,9 @@ from .forms import (
 
 User = get_user_model()
 
+# Sort keys the products page offers (anything else falls back to newest first).
+PRODUCT_SORTS = {"-created_at", "name", "-price", "price", "quantity"}
+
 
 @never_cache
 @staff_member_required
@@ -50,7 +53,12 @@ def index(request):
         )
         .order_by("day")
     )
-    sales_trend = {str(item["day"]): float(item["total"]) for item in sales_trend_qs}
+    by_day = {item["day"]: float(item["total"] or 0) for item in sales_trend_qs}
+    # Every day of the window, so the chart shows quiet days as 0 instead of skipping them.
+    today = timezone.localdate()
+    days = [today - timedelta(days=offset) for offset in range(29, -1, -1)]
+    sales_trend = {day.strftime("%d %b"): by_day.get(day, 0.0) for day in days}
+    sales_30d = sum(by_day.values())
 
     # Top products by quantity
     top_products_qs = (
@@ -58,10 +66,14 @@ def index(request):
         .annotate(qty=Sum("quantity"))
         .order_by("-qty")[:5]
     )
-    top_products = {item["product__name"]: int(item["qty"]) for item in top_products_qs}
+    top_rows = [(item["product__name"], int(item["qty"] or 0)) for item in top_products_qs]
+    top_max = max((qty for _, qty in top_rows), default=0) or 1
+    top_products = [
+        {"name": name, "qty": qty, "pct": round(qty * 100 / top_max)} for name, qty in top_rows
+    ]
 
     recent_orders = (
-        Order.objects.select_related("buyer").order_by("-created_at")[:10]
+        Order.objects.select_related("buyer").order_by("-created_at")[:8]
     )
 
     context = {
@@ -69,6 +81,10 @@ def index(request):
         "total_products": total_products,
         "total_orders": total_orders,
         "total_sales": float(total_sales),
+        "sales_30d": sales_30d,
+        "pending_orders": Order.objects.filter(status=Order.PENDING).count(),
+        "low_stock": Product.objects.filter(quantity__lte=3).count(),
+        "new_customers_30d": User.objects.filter(date_joined__gte=thirty_days_ago).count(),
         "sales_trend": sales_trend,
         "top_products": top_products,
         "recent_orders": recent_orders,
@@ -83,14 +99,15 @@ def products_list(request):
 
     q = request.GET.get("q")
     order_by = request.GET.get("sort", "-created_at")
+    if order_by not in PRODUCT_SORTS:
+        order_by = "-created_at"
 
     if q:
         qs = qs.filter(name__icontains=q)
 
-    if order_by:
-        qs = qs.order_by(order_by)
+    qs = qs.order_by(order_by)
 
-    paginator = Paginator(qs, 12)
+    paginator = Paginator(qs, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
     form = ProductForm()
@@ -123,19 +140,14 @@ def product_create(request):
             # Form has errors, re-render with error messages
             messages.error(request, 'Please correct the errors below.')
             qs = Product.objects.select_related("category", "seller").all()
-            q = request.GET.get("q")
-            order_by = request.GET.get("sort", "-created_at")
-            if q:
-                qs = qs.filter(name__icontains=q)
-            if order_by:
-                qs = qs.order_by(order_by)
-            paginator = Paginator(qs, 12)
+            qs = qs.order_by("-created_at")
+            paginator = Paginator(qs, 20)
             page_obj = paginator.get_page(request.GET.get("page"))
             categories = ProductCategory.objects.all()
             return render(
                 request,
                 "dashboard/products_list.html",
-                {"page_obj": page_obj, "query": q or "", "sort": order_by, "form": form, "categories": categories},
+                {"page_obj": page_obj, "query": "", "sort": "-created_at", "form": form, "categories": categories},
             )
     return redirect("dashboard:products_list")
 
@@ -153,9 +165,13 @@ def product_update(request, product_id):
                 ProductImage.objects.create(product=product, file_local=f, order=idx)
             for idx, f in enumerate(request.FILES.getlist('video_files')):
                 ProductVideo.objects.create(product=product, file_local=f, order=idx)
-            messages.success(request, f'Product "{product.name}" updated successfully!')
+            messages.success(request, f'Product "{product.name}" updated.')
         else:
-            messages.error(request, 'Failed to update product. Please check the form.')
+            errors = "; ".join(f"{form.fields[k].label if k in form.fields else k}: {e}" for k, errs in form.errors.items() for e in errs)
+            messages.error(request, f"Could not update the product. {errors}")
+    back = request.POST.get("next") or ""
+    if back.startswith("/dashboard/"):
+        return redirect(back)
     return redirect("dashboard:products_list")
 
 
@@ -177,7 +193,7 @@ def product_detail(request, product_id):
     return render(
         request,
         "dashboard/product_detail.html",
-        {"product": product},
+        {"product": product, "categories": ProductCategory.objects.all()},
     )
 
 
@@ -194,13 +210,20 @@ def orders_list(request):
     if status in dict(Order.STATUS_CHOICES):
         qs = qs.filter(status=status)
 
-    paginator = Paginator(qs, 15)
+    paginator = Paginator(qs.order_by("-created_at"), 15)
     page_obj = paginator.get_page(request.GET.get("page"))
+    counts = {row["status"]: row["n"] for row in Order.objects.values("status").annotate(n=Count("id"))}
 
     return render(
         request,
         "dashboard/orders_list.html",
-        {"page_obj": page_obj, "status": status or ""},
+        {
+            "page_obj": page_obj,
+            "status": status or "",
+            "count_all": sum(counts.values()),
+            "count_pending": counts.get(Order.PENDING, 0),
+            "count_completed": counts.get(Order.COMPLETED, 0),
+        },
     )
 
 
@@ -212,6 +235,10 @@ def order_update_status(request, order_id):
         form = OrderStatusForm(request.POST, instance=order)
         if form.is_valid():
             form.save()
+            messages.success(request, f"Order #{order.id} marked as {order.get_status_display()}.")
+    back = request.POST.get("next") or ""
+    if back.startswith("/dashboard/"):
+        return redirect(back)
     return redirect("dashboard:orders_list")
 
 
@@ -221,7 +248,17 @@ def users_list(request):
     qs = (
         User.objects.all()
         .annotate(total_orders=Count("orders", distinct=True))
+        .order_by("-date_joined")
     )
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        from django.db.models import Q
+
+        qs = qs.filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q)
+            | Q(email__icontains=q) | Q(username__icontains=q)
+            | Q(phone__phone_number__icontains=q)
+        )
 
     # Total spent per user using OrderItem linkage
     spent_map = (
@@ -238,7 +275,7 @@ def users_list(request):
     return render(
         request,
         "dashboard/users_list.html",
-        {"page_obj": page_obj, "spent": spent_dict},
+        {"page_obj": page_obj, "spent": spent_dict, "query": q, "total_users": paginator.count},
     )
 
 

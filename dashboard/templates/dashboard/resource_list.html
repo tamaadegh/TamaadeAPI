@@ -1,0 +1,98 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}{{ res.title }}{% endblock %}
+{% block crumbs %}<span>Storefront</span><i class="fa-solid fa-chevron-right" style="font-size:10px"></i><span class="current">{{ res.title }}</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ res.title }}</h1>
+    <p>{{ res.description }}</p>
+  </div>
+  <div class="actions">
+    <a href="{% url 'dashboard:resource_create' res.slug %}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add {{ res.singular }}</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="table table-modern">
+      <thead>
+        <tr>
+          <th>{{ res.singular|capfirst }}</th>
+          {% for label, fn in res.columns %}<th>{{ label }}</th>{% endfor %}
+          <th>Status</th>
+          <th style="width:1%"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <a href="{% url 'dashboard:resource_edit' res.slug row.obj.pk %}" class="cell-media">
+              {% if not res.has_image %}{% elif row.image %}
+                <img class="thumb" src="{{ row.image }}" alt="" loading="lazy" style="{% if res.round_image %}border-radius:50%{% else %}width:88px; height:44px{% endif %}">
+              {% else %}
+                <span class="thumb d-inline-flex align-items-center justify-content-center fw-bold text-muted" style="{% if res.round_image %}border-radius:50%{% else %}width:88px{% endif %}">{{ row.name|slice:":1"|upper }}</span>
+              {% endif %}
+              <span class="meta">
+                <span class="primary" title="{{ row.name }}">{{ row.name }}</span>
+                {% if row.subtitle %}<small>{{ row.subtitle }}</small>{% endif %}
+              </span>
+            </a>
+          </td>
+          {% for cell in row.cells %}<td class="text-muted">{{ cell }}</td>{% endfor %}
+          <td>{% if row.status %}<span class="pill pill-{{ row.status.0 }}">{{ row.status.1 }}</span>{% endif %}</td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{% url 'dashboard:resource_edit' res.slug row.obj.pk %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="fa-solid fa-pen"></i></a>
+              <button type="button" class="btn btn-ghost danger btn-icon btn-sm" title="Delete"
+                      data-bs-toggle="modal" data-bs-target="#deleteModal"
+                      data-name="{{ row.name }}"
+                      data-action="{% url 'dashboard:resource_delete' res.slug row.obj.pk %}"><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pager"><span>{{ rows|length }} {% if rows|length == 1 %}{{ res.singular }}{% else %}{{ res.title|lower }}{% endif %}</span></div>
+  {% else %}
+  <div class="empty">
+    <div class="icon"><i class="fa-solid {{ res.icon }}"></i></div>
+    <h3>No {{ res.title|lower }} yet</h3>
+    <p>{{ res.empty_hint }}</p>
+    <a href="{% url 'dashboard:resource_create' res.slug %}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add {{ res.singular }}</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="">
+      {% csrf_token %}
+      <div class="modal-body text-center pt-4">
+        <span class="confirm-icon"><i class="fa-regular fa-trash-can"></i></span>
+        <h5 class="fw-bold mb-1">Delete this {{ res.singular }}?</h5>
+        <p class="text-muted mb-0"><strong class="text-body" data-fill="name"></strong> will be removed from the website and the app. This can't be undone.</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" type="submit">Delete {{ res.singular }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+    var b = e.relatedTarget;
+    this.querySelector('form').action = b.getAttribute('data-action');
+    this.querySelector('[data-fill="name"]').textContent = b.getAttribute('data-name');
+  });
+</script>
+{% endblock %}
