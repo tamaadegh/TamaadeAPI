@@ -284,6 +284,13 @@ IMAGEKIT_PRIVATE_KEY = config("IMAGEKIT_PRIVATE_KEY", default="")
 IMAGEKIT_URL_ENDPOINT = config("IMAGEKIT_URL_ENDPOINT", default="")
 IMAGEKIT_UPLOAD_ASYNC = config("IMAGEKIT_UPLOAD_ASYNC", default=True, cast=bool)
 
+# Cloudinary: where every image is stored (products, categories, banners, merch tiles).
+# cloudinary://<api_key>:<api_secret>@<cloud_name>, from the Cloudinary console > API Keys.
+CLOUDINARY_URL = config("CLOUDINARY_URL", default="")
+# Upload product images from a Celery worker instead of during the request.
+# Off by default: without a running worker the images would never be uploaded.
+IMAGE_UPLOAD_ASYNC = config("IMAGE_UPLOAD_ASYNC", default=False, cast=bool)
+
 # Jazzmin configuration for a modern, branded admin
 JAZZMIN_SETTINGS = {
     "site_title": "Tamaade Admin Portal",

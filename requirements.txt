@@ -76,3 +76,4 @@ pre-commit==3.4.0
 dj-database-url==2.1.0
 whitenoise==6.5.0
 imagekitio==1.2.0
+cloudinary==1.41.0

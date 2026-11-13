@@ -16,7 +16,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from dashboard.events import record_event
 from dashboard.models import SystemEvent
-from users.models import Address, Profile
+from users.models import Address, PhoneNumber, Profile
 from users.permissions import IsUserAddressOwner, IsUserProfileOwner
 from users.serializers import (
     AddressReadOnlySerializer,
@@ -222,10 +222,32 @@ def _not_registered():
     )
 
 
+def _ensure_review_account(phone, purpose):
+    """
+    The shared test number (OTP_REVIEW_PHONE) must always be able to sign in, even on a fresh
+    database: create its account on first use. Only that one number, only for sign-in.
+    """
+    from django.db import transaction
+    from users import otp
+
+    if otp.review_fixed_code(phone, purpose) is None or _user_for_phone(phone) is not None:
+        return
+    with transaction.atomic():
+        user = User(
+            username=f"tmd{phone.lstrip('+')}"[:150],
+            first_name="Tamaade",
+            last_name="Test",
+        )
+        user.set_unusable_password()  # signs in with the fixed SMS code only
+        user.save()
+        PhoneNumber.objects.create(user=user, phone_number=phone, is_verified=True)
+
+
 def _send_otp(request, phone, purpose):
     """Throttle, store and SMS a code for an existing account's number."""
     from users import otp
 
+    _ensure_review_account(phone, purpose)
     if _user_for_phone(phone) is None:
         return _not_registered()
     try:

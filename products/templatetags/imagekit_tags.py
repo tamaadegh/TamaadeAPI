@@ -20,6 +20,11 @@ def imagekit_url(src=None, width=None, height=None, quality=None, url_endpoint=N
     """
     if not src:
         return ""
+    # Images now live on Cloudinary; resize them there (other URLs pass through unchanged).
+    from config.cloudinary_media import resized_url
+
+    if "res.cloudinary.com" in src:
+        return resized_url(src, width=width, height=height, quality=quality)
     if not imagekit:
         return src
     try:

@@ -221,6 +221,18 @@ class OtpLoginTests(TestCase):
         # A wrong code is still rejected.
         self.assertEqual(self._verify("654321", phone="0244440000").status_code, 400)
 
+    @override_settings(OTP_REVIEW_PHONE="0244000000", OTP_REVIEW_CODE="123456")
+    def test_review_number_works_on_an_empty_database(self):
+        # No account yet: the first code request creates the shared test account.
+        self.assertEqual(self._request(phone="0244000000").status_code, 200)
+        self.assertEqual(self.sent, [])
+        response = self._verify("123456", phone="0244000000")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.json())
+        self.assertEqual(PhoneNumber.objects.filter(phone_number="+233244000000").count(), 1)
+        # Other unknown numbers are still refused.
+        self.assertEqual(self._request(phone="0244111111").status_code, 404)
+
     def test_sms_failure_returns_503(self):
         self._user()
         with patch("users.otp.send_sms", side_effect=otp.SmsDeliveryError("rejected")):

@@ -19,9 +19,19 @@ class ProductCategoryReadSerializer(serializers.ModelSerializer):
     Serializer class for product categories
     """
 
+    # The ImageKit URL when uploaded, else the local file; null when the category has no image.
+    icon = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductCategory
-        fields = "__all__"
+        fields = ("id", "name", "icon", "created_at", "updated_at")
+
+    def get_icon(self, obj):
+        url = obj.resolved_icon
+        if url and url.startswith("/"):
+            request = self.context.get("request")
+            return request.build_absolute_uri(url) if request else url
+        return url
 
 
 class ProductReadSerializer(serializers.ModelSerializer):

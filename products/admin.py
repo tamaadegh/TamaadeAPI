@@ -83,9 +83,40 @@ class NavLinkAdmin(admin.ModelAdmin):
 
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'product_count', 'created_at']
+    list_display = ['icon_preview', 'name', 'product_count', 'created_at']
+    list_display_links = ['icon_preview', 'name']
     search_fields = ['name']
     list_per_page = 25
+    fields = ['name', 'icon', 'current_icon']
+    readonly_fields = ['current_icon']
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # A new category must come with its image, so the apps show a picture instead of a letter.
+        # Existing categories can be saved without one and get an image later.
+        icon_field = form.base_fields.get('icon')
+        if icon_field is not None:
+            icon_field.required = obj is None
+            icon_field.help_text = (
+                "Required for a new category. Square image, shown in a circle in the apps."
+                if obj is None else
+                "Upload a new image to replace the current one."
+            )
+        return form
+
+    def icon_preview(self, obj):
+        url = obj.resolved_icon
+        if not url:
+            return format_html('<span style="color:#999;">No image</span>')
+        return format_html('<img src="{}" style="width:40px;height:40px;object-fit:cover;border-radius:50%;" />', url)
+    icon_preview.short_description = 'Image'
+
+    def current_icon(self, obj):
+        url = obj.resolved_icon if obj else None
+        if not url:
+            return "No image yet"
+        return format_html('<img src="{}" style="width:96px;height:96px;object-fit:cover;border-radius:50%;" />', url)
+    current_icon.short_description = 'Current image'
     
     def product_count(self, obj):
         count = obj.product_list.count()
