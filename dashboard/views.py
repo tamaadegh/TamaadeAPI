@@ -424,18 +424,18 @@ def insights(request):
             ),
         },
         {
-            "name": "SMS (Twilio)",
-            "ok": all([
-                settings.TWILIO_ACCOUNT_SID,
-                settings.TWILIO_AUTH_TOKEN,
-                settings.TWILIO_PHONE_NUMBER,
+            "name": "SMS (Hubtel)",
+            "ok": settings.OTP_SMS_PROVIDER == "hubtel" and all([
+                settings.HUBTEL_SMS_CLIENT_ID,
+                settings.HUBTEL_SMS_CLIENT_SECRET,
+                settings.HUBTEL_SMS_SENDER_ID,
             ]),
-            "detail": "Phone OTP codes cannot be sent without this.",
+            "detail": "Phone sign-in codes cannot be sent without this.",
         },
         {
-            "name": "ImageKit uploads",
-            "ok": bool(settings.IMAGEKIT_PRIVATE_KEY and settings.IMAGEKIT_URL_ENDPOINT),
-            "detail": "New product images are uploaded here.",
+            "name": "Cloudinary uploads",
+            "ok": bool(settings.CLOUDINARY_URL),
+            "detail": "New product and category images are uploaded here.",
         },
     ]
 
